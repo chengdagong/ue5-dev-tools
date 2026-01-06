@@ -13,48 +13,67 @@ import subprocess
 from typing import List, Dict, Optional, Any, Tuple
 
 # 路径定义
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SKILL_ROOT = os.path.dirname(CURRENT_DIR)
+# 优先使用 CLAUDE_PLUGIN_ROOT (由 Claude Code 注入)
+PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT")
+if not PLUGIN_ROOT:
+    # Fallback: 假设脚本位置 <root>/skills/api-validator/scripts/validate.py
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+    PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
+
+# 定义插件内部路径
+SKILL_ROOT = os.path.join(PLUGIN_ROOT, "skills", "api-validator")
 LIB_DIR = os.path.join(SKILL_ROOT, "lib")
 MOCK_DIR = os.path.join(LIB_DIR, "mock_unreal")
-CONVERTER_SCRIPT = os.path.join(CURRENT_DIR, "convert_stub_to_mock.py")
+CONVERTER_SCRIPT = os.path.join(SKILL_ROOT, "scripts", "convert_stub_to_mock.py")
+EXTRACTOR_SCRIPT = os.path.join(SKILL_ROOT, "scripts", "cpp_metadata_extractor.py")
 
-# 获取项目根目录 (假设 skill 位于 <project>/ue5-python-validator/skills/api-validator/scripts)
-PLUGIN_ROOT = os.path.dirname(os.path.dirname(SKILL_ROOT))
-PROJECT_ROOT = os.path.dirname(os.path.dirname(PLUGIN_ROOT))
+# 获取项目根目录
+# 当通过 Claude Plugin 运行时，CWD 通常是用户的项目根目录
+PROJECT_ROOT = os.getcwd()
+
+# 常见的 UE5 源码路径 (MacOS)
+POTENTIAL_UE5_SOURCE_PATHS = [
+    "/Users/Shared/Epic Games/UE_5.7/Engine/Source",
+    "/Users/Shared/Epic Games/UE_5.6/Engine/Source",
+    "/Users/Shared/Epic Games/UE_5.5/Engine/Source",
+    "/Users/Shared/Epic Games/UE_5.4/Engine/Source",
+    "/Users/Shared/Epic Games/UE_5.3/Engine/Source",
+]
 
 def ensure_mock_module():
     """确保 mock_unreal 模块存在，如果不存在则尝试生成"""
+    # 检查是否存在 (在 cache 中或 source 中)
     if os.path.exists(os.path.join(MOCK_DIR, "__init__.py")):
         return True
         
     print("⚠️ 未检测到 mock_unreal 模块，尝试自动生成...")
     
     # 查找 stub 文件
-    stub_path = os.path.join(PROJECT_ROOT, "Intermediate", "PythonStub", "unreal.py")
-    if not os.path.exists(stub_path):
-        # 尝试其他常见位置
-        potential_paths = [
-            os.path.join(PROJECT_ROOT, "Intermediate", "PythonStub", "unreal.py"),
-            os.path.join(PROJECT_ROOT, "Saved", "UnrealAPIGenerator", "unreal.py"), # 假设路径
-            os.path.join(PLUGIN_ROOT, "..", "Intermediate", "PythonStub", "unreal.py")
-        ]
-        found = False
-        for p in potential_paths:
-            if os.path.exists(p):
-                stub_path = p
-                found = True
-                break
-        
-        if not found:
-            print(f"❌ 无法找到 unreal.py stub 文件。请确保项目已生成 Python stub。搜索路径: {stub_path}")
-            return False
+    # 尝试在 PROJECT_ROOT (CWD) 下查找
+    potential_paths = [
+        os.path.join(PROJECT_ROOT, "Intermediate", "PythonStub", "unreal.py"),
+        os.path.join(PROJECT_ROOT, "Saved", "UnrealAPIGenerator", "unreal.py"),
+    ]
+    
+    stub_path = None
+    for p in potential_paths:
+        if os.path.exists(p):
+            stub_path = p
+            break
+            
+    if not stub_path:
+        # 如果找不到，并且是在 query 模式下，可能不需要 mock (但功能受限)
+        # 我们只打印警告
+        # print(f"ℹ️ 提示: 未能在当前项目目录找到 unreal.py stub。搜索路径: {potential_paths}")
+        # print("   Mock生成将跳过。如果这是第一次在本项目运行，请确保已生成 Stub。")
+        return False
             
     print(f"ℹ️ 找到 Stub 文件: {stub_path}")
     print(f"ℹ️ 生成 Mock 模块到: {MOCK_DIR}")
     
     try:
         os.makedirs(LIB_DIR, exist_ok=True)
+        # 确保 MOCK_DIR 清空重写? 脚本会处理
         subprocess.check_call([
             sys.executable, 
             CONVERTER_SCRIPT, 
@@ -70,7 +89,50 @@ def ensure_mock_module():
         print(f"❌ 发生错误: {e}")
         return False
 
-# (Empty - Remove duplicate code)
+def ensure_metadata(output_path: str):
+    """确保 C++ 元数据存在，如果不存在则尝试从 UE5 源码提取"""
+    if os.path.exists(output_path):
+        return
+
+    print("⚠️ 未检测到 C++ 元数据，尝试自动提取...")
+    
+    ue5_source = None
+    # 1. 尝试从环境变量获取 UE5_ENGINE_DIR
+    env_ue5 = os.environ.get("UE_ENGINE_DIR")
+    if env_ue5 and os.path.exists(os.path.join(env_ue5, "Engine/Source")):
+        ue5_source = os.path.join(env_ue5, "Engine/Source")
+    
+    # 2. 尝试常见路径
+    if not ue5_source:
+        for p in POTENTIAL_UE5_SOURCE_PATHS:
+            if os.path.isdir(p):
+                ue5_source = p
+                break
+    
+    if not ue5_source:
+        print("ℹ️ 未检测到 UE5 源码路径，跳过元数据提取。")
+        return
+
+    print(f"ℹ️ 检测到 UE5 源码: {ue5_source}")
+    target_scan_path = os.path.join(ue5_source, "Runtime/Engine/Classes/GameFramework")
+    
+    if not os.path.exists(target_scan_path):
+        print(f"ℹ️ 源码路径中未找到 Engine/Classes/GameFramework，跳过。")
+        return
+
+    print("⏳ 正在提取元数据 (可能需要几秒钟)...")
+    try:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        subprocess.check_call([
+            sys.executable,
+            EXTRACTOR_SCRIPT,
+            "--ue5-path", target_scan_path,
+            "--output", output_path
+        ])
+        print("✅ 元数据提取成功！")
+    except Exception as e:
+        print(f"❌ 元数据提取失败: {e}")
+
 
 # 尝试加载 mock_unreal
 if ensure_mock_module():
@@ -78,17 +140,20 @@ if ensure_mock_module():
     try:
         import mock_unreal as unreal
     except ImportError as e:
-        print(f"❌ 导入 mock_unreal 失败: {e}")
+        # print(f"❌ 导入 mock_unreal 失败: {e}")
         unreal = None
 else:
-    print("⚠️ 将在仅静态分析模式下运行 (无运行时 API 检查)")
+    # print("⚠️ 将在仅静态分析模式下运行 (无运行时 API 检查)")
     unreal = None
 
-# ... rest of the file ...
 
 # 尝试加载元数据
 METADATA = {}
-metadata_path = os.path.join(os.path.dirname(PLUGIN_ROOT), "references", "metadata.json")
+metadata_path = os.path.join(SKILL_ROOT, "references", "metadata.json")
+
+# 确保元数据存在
+ensure_metadata(metadata_path)
+
 if os.path.exists(metadata_path):
     try:
         with open(metadata_path, 'r', encoding='utf-8') as f:

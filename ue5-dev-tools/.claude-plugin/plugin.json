@@ -1,0 +1,19 @@
+{
+    "name": "ue5-dev-tools",
+    "version": "1.0.0",
+    "description": "验证 UE5 Python 脚本的 API 使用是否正确，检测 deprecated API 和参数约束",
+    "author": {
+        "name": "UE5 Python Validator"
+    },
+    "keywords": [
+        "unreal",
+        "python",
+        "api",
+        "validator",
+        "ue5",
+        "deprecated"
+    ],
+    "skills": "./skills/",
+    "commands": "./commands/",
+    "hooks": "./hooks/hooks.json"
+}

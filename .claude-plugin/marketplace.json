@@ -1,0 +1,14 @@
+{
+  "name": "ue5-local-market",
+  "owner": {
+    "name": "Local User",
+    "email": "user@local"
+  },
+  "plugins": [
+    {
+      "name": "ue5-dev-tools",
+      "description": "UE5 Development Tools",
+      "source": "./ue5-dev-tools"
+    }
+  ]
+}

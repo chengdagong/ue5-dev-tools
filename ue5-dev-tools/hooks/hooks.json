@@ -1,0 +1,16 @@
+{
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Write.*\\.py$",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python ${CLAUDE_PLUGIN_ROOT}/skills/api-validator/scripts/validate.py ${ARGUMENTS}",
+                        "timeout": 30000
+                    }
+                ]
+            }
+        ]
+    }
+}

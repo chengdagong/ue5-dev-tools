@@ -24,6 +24,14 @@
     claude plugin install ue5-dev-tools
     ```
 
+3.  **安装 Git Hooks（可选，用于开发）**
+    如果你是插件开发者，安装 git hooks 可以自动管理版本号：
+    ```bash
+    cd ue5-dev-tools
+    ./scripts/install-hooks.sh
+    ```
+    这会启用自动版本递增功能：每次 commit 时自动将 `plugin.json` 的版本号 +0.0.1
+
 ## 使用
 
 在您的 UE5 项目目录中打开 Claude，即可使用以下命令：

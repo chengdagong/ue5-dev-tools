@@ -249,6 +249,11 @@ class AstValidator(ast.NodeVisitor):
             elif obj_name in self.variable_types:
                 class_name = self.variable_types[obj_name]
                 self._validate_method(class_name, member_name, node.lineno)
+                
+                # Check for editor property access
+                if member_name in ("get_editor_property", "set_editor_property"):
+                    self._validate_editor_property_access(class_name, node)
+                
                 # TODO: 也可以检查方法参数
 
         # Case 2: node.func.value 是 Attribute (unreal.SomeClass.static_method())
@@ -277,7 +282,22 @@ class AstValidator(ast.NodeVisitor):
 
         # 检查是类还是函数
         if isinstance(member, type):
-            # 这是一个类，验证构造函数
+            # 这是一个类，可能需要检测是否已废弃 (Runtime & Metadata)
+            try:
+                # 尝试实例化以检测 Runtime Deprecated
+                # 注意：这里我们主要检测构造函数是否抛出 DeprecatedError
+                member()
+            except DeprecatedError as e:
+                self.report.add_warning(f"类 '{member_name}' 已废弃(Runtime): {e}", node.lineno)
+            except Exception:
+                pass
+                
+            # 同时也检查 Metadata (因为 visit_Attribute 被跳过了)
+            if member_name in METADATA and METADATA[member_name].get("deprecated", False):
+                msg = METADATA[member_name].get("deprecation_message", "此类已废弃")
+                self.report.add_warning(f"类 '{member_name}' 已废弃(Metadata): {msg}", node.lineno)
+                
+            # 验证构造函数参数
             self._validate_constructor(member_name, node)
         else:
             # 这是一个模块级函数或其他可调用对象
@@ -471,6 +491,32 @@ class AstValidator(ast.NodeVisitor):
                             self.variable_types[target.id] = class_name
                             
         self.generic_visit(node)
+
+    def _validate_editor_property_access(self, class_name: str, node: ast.Call):
+        """Validates calls to get_editor_property and set_editor_property."""
+        if not node.args:
+            return
+
+        # First argument is the property name
+        prop_arg = node.args[0]
+        if not isinstance(prop_arg, ast.Constant) or not isinstance(prop_arg.value, str):
+            return # Runtime expression, cannot validate statically
+
+        prop_name = prop_arg.value
+        
+        # Check Metadata
+        if class_name in METADATA:
+            properties = METADATA[class_name].get("properties", {})
+            if prop_name not in properties:
+                # Some properties might be dynamic or missing from metadata, treat as warning or error?
+                # For now, if we have metadata for the class but not the property, it's suspicious.
+                self.report.add_error(f"属性 '{prop_name}' 不存在于类 '{class_name}' (Editor Property)", node.lineno)
+            else:
+                prop_data = properties[prop_name]
+                if prop_data.get("deprecated", False):
+                    msg = prop_data.get("deprecation_message", "此属性已废弃")
+                    self.report.add_warning(f"属性 '{class_name}.{prop_name}' 已废弃: {msg}", node.lineno)
+
 
 def validate_file(filepath: str):
     report = ValidationReport()

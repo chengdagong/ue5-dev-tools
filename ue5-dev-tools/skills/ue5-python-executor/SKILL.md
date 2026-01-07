@@ -1,6 +1,6 @@
 ---
 name: ue5-python-executor
-description: Execute Python scripts in running UE5 editor instances using remote execution protocol. Use when users need to (1) enable UE5 Python plugin and remote execution, (2) execute Python scripts in running UE5 editor, (3) verify UE5 project Python configuration, or (4) run Python code remotely in UE5 without debugging.
+description: Execute Python scripts in running UE5 editor instances using remote execution protocol. Use when users need to (1) run UE5.x python scripts (2) enable UE5 Python plugin and remote execution, (3) execute Python scripts in running UE5 editor, (4) verify UE5 project Python configuration
 ---
 
 # UE5 Python Executor

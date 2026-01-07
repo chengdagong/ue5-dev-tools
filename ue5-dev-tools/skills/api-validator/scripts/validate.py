@@ -190,6 +190,7 @@ class AstValidator(ast.NodeVisitor):
         self.report = report
         self.imported_unreal_as = "unreal"
         self.variable_types = {}  # var_name -> class_name
+        self.called_attributes = set()  # Track attribute nodes that are called as functions
 
     def visit_Import(self, node):
         for alias in node.names:
@@ -205,43 +206,49 @@ class AstValidator(ast.NodeVisitor):
 
     def visit_Attribute(self, node):
         # 检查 unreal.Member 访问
+        # 但要区分：函数调用 (unreal.log()) vs 类引用 (unreal.Actor)
         if isinstance(node.value, ast.Name) and node.value.id == self.imported_unreal_as:
             member_name = node.attr
-            self._validate_unreal_class(member_name, node.lineno)
+            # 只在非函数调用上下文中验证为类
+            # 函数调用会在 visit_Call 中处理
+            if id(node) not in self.called_attributes:
+                self._validate_unreal_class(member_name, node.lineno)
         self.generic_visit(node)
 
     def visit_Call(self, node):
         self.report.stats["methods"] += 1
-        
-        # 检查是否调用了 unreal.Class()
+
+        # 检查是否调用了 unreal.something()
         if isinstance(node.func, ast.Attribute):
+            # Mark this attribute node as being called (so visit_Attribute won't validate it as a class)
+            self.called_attributes.add(id(node.func))
             self._check_attribute_call(node)
         elif isinstance(node.func, ast.Name):
             # 检查是否是已知的类构造函数
             if node.func.id in self.variable_types:
                 # 可能是某种工厂方法
                 pass
-                
+
         self.generic_visit(node)
 
     def _check_attribute_call(self, node):
-        # 处理 unreal.SomeClass() 或 obj.some_method() 或 unreal.Class.method()
-        
-        # Case 1: node.func.value 是 Name (unreal.Class() 或 obj.method())
+        # 处理 unreal.something() 调用
+        # 可能是：unreal.SomeClass() 或 obj.some_method() 或 unreal.Class.method() 或 unreal.module_function()
+
+        # Case 1: node.func.value 是 Name (unreal.something() 或 obj.method())
         if isinstance(node.func.value, ast.Name):
             obj_name = node.func.value.id
-            method_name = node.func.attr
-            
-            # SubCase 1.1: unreal.SomeClass()
+            member_name = node.func.attr
+
+            # SubCase 1.1: unreal.something()
             if obj_name == self.imported_unreal_as:
-                # 检查构造函数参数
-                self._validate_constructor(method_name, node)
-                pass # visit_Attribute 已经检查了类是否存在
-                
+                # 可能是类构造函数或模块级函数
+                self._validate_unreal_member_call(member_name, node)
+
             # SubCase 1.2: obj.method()
             elif obj_name in self.variable_types:
                 class_name = self.variable_types[obj_name]
-                self._validate_method(class_name, method_name, node.lineno)
+                self._validate_method(class_name, member_name, node.lineno)
                 # TODO: 也可以检查方法参数
 
         # Case 2: node.func.value 是 Attribute (unreal.SomeClass.static_method())
@@ -251,11 +258,31 @@ class AstValidator(ast.NodeVisitor):
             if isinstance(sub_node.value, ast.Name) and sub_node.value.id == self.imported_unreal_as:
                 class_name = sub_node.attr
                 method_name = node.func.attr
-                
+
                 # 验证类存在性 (visit_Attribute 会处理，但为了验证方法必须先确认类)
                 # 验证方法
                 self._validate_method(class_name, method_name, node.lineno)
                 # TODO: 检查静态方法参数
+
+    def _validate_unreal_member_call(self, member_name: str, node: ast.Call):
+        """验证 unreal.something() 调用，可能是类构造函数或模块级函数"""
+        if not unreal:
+            return
+
+        if not hasattr(unreal, member_name):
+            self.report.add_error(f"'unreal.{member_name}' 不存在", node.lineno)
+            return
+
+        member = getattr(unreal, member_name)
+
+        # 检查是类还是函数
+        if isinstance(member, type):
+            # 这是一个类，验证构造函数
+            self._validate_constructor(member_name, node)
+        else:
+            # 这是一个模块级函数或其他可调用对象
+            # 模块级函数不需要特殊验证（它们存在即可用）
+            pass
 
     def _validate_constructor(self, class_name: str, node: ast.Call):
         if not unreal or not hasattr(unreal, class_name):

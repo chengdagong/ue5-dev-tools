@@ -686,54 +686,55 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
 def main():
     import argparse
     import sys
-    
+
     # 确保能导入同目录下的 config 模块
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    
+
     has_config = False
-    input_path = None
-    output_dir = None
-    
+    default_input_path = None
+    default_output_dir = None
+
     try:
         import config
         has_config = True
         project_dir = config.get_project_root()
-        input_path = config.resolve_stub_path(project_dir)
-        output_dir = config.get_mock_dir(project_dir)
+        default_input_path = config.resolve_stub_path(project_dir)
+        default_output_dir = config.get_mock_dir(project_dir)
     except ImportError:
         pass
-    
+
     parser = argparse.ArgumentParser(description='将 Unreal Python 存根文件转换为 Mock 模块')
-    
-    if not has_config:
-        parser.add_argument('--input', '-i', required=True, help='输入的存根文件路径')
-        parser.add_argument('--output', '-o', required=True, help='输出目录')
-    else:
-        # 如果有配置，我们不接受路径参数，强制使用配置
-        # 为了让 --help 正常显示，我们可以添加帮助信息说明
-        parser.description += " (已加载配置，路径参数被锁定)"
-    
+
+    # 始终接受参数，但在有配置时设置默认值
+    parser.add_argument('--input', '-i',
+                       required=(not has_config),
+                       default=default_input_path,
+                       help='输入的存根文件路径' + (f' (默认: {default_input_path})' if default_input_path else ''))
+    parser.add_argument('--output', '-o',
+                       required=(not has_config),
+                       default=default_output_dir,
+                       help='输出目录' + (f' (默认: {default_output_dir})' if default_output_dir else ''))
+
     args = parser.parse_args()
-    
-    # 获取最终路径
-    if not has_config:
-        input_path = args.input
-        output_dir = args.output
-        
+
+    # 获取最终路径（命令行参数优先）
+    input_path = args.input
+    output_dir = args.output
+
     if not input_path:
         print(f"❌ 错误: 未能找到 Unreal Stub 文件 (Project: {config.get_project_root() if has_config else 'Unknown'})")
         sys.exit(1)
-        
+
     print(f"解析存根文件: {input_path}")
     if not os.path.exists(input_path):
          print(f"❌ 文件不存在: {input_path}")
          sys.exit(1)
-         
+
     classes = parse_stub_file(input_path)
     print(f"找到 {len(classes)} 个类定义")
-    
+
     print(f"生成 Mock 模块...")
     print(f"输出目录: {output_dir}")
     generate_mock_module(classes, output_dir)

@@ -45,29 +45,39 @@ POTENTIAL_UE5_SOURCE_PATHS = [
     "/Users/Shared/Epic Games/UE_5.3/Engine/Source",
 ]
 
-def ensure_mock_module():
-    """确保 mock_unreal 模块存在，如果不存在则尝试生成"""
+def ensure_mock_module(custom_stub_path: Optional[str] = None):
+    """确保 mock_unreal 模块存在，如果不存在则尝试生成
+
+    Args:
+        custom_stub_path: 用户指定的 unreal.py stub 文件路径（通过 --input 参数）
+    """
     # 检查是否存在 (检查 unreal_mock.py)
     if os.path.exists(os.path.join(MOCK_DIR, "unreal_mock.py")):
         return True
-        
+
     print("⚠️ 未检测到 mock_unreal 模块，尝试自动生成...")
-    
-    # 查找 stub 文件 (via config)
-    stub_path = config.resolve_stub_path(PROJECT_ROOT)
-    
+
+    # 查找 stub 文件
+    stub_path = custom_stub_path or config.resolve_stub_path(PROJECT_ROOT)
+
     if not stub_path:
         return False
-            
+
+    # 验证自定义路径是否存在
+    if custom_stub_path and not os.path.exists(custom_stub_path):
+        print(f"❌ 指定的 Stub 文件不存在: {custom_stub_path}")
+        return False
+
     print(f"ℹ️ 找到 Stub 文件: {stub_path}")
     print(f"ℹ️ 生成 Mock 模块到: {MOCK_DIR}")
-    
+
     try:
         os.makedirs(MOCK_DIR, exist_ok=True)
-        subprocess.check_call([
-            sys.executable, 
-            CONVERTER_SCRIPT
-        ])
+        # 传递自定义 stub 路径给 converter
+        cmd = [sys.executable, CONVERTER_SCRIPT]
+        if custom_stub_path:
+            cmd.extend(['--input', custom_stub_path, '--output', MOCK_DIR])
+        subprocess.check_call(cmd)
         print("✅ Mock 模块生成成功！")
         return True
     except subprocess.CalledProcessError as e:
@@ -125,21 +135,39 @@ def ensure_metadata(output_path: str):
 class DeprecatedError(Exception):
     pass
 
-# 尝试加载 mock_unreal
-if ensure_mock_module():
-    # 直接将 MOCK_DIR 加入 path，并导入 unreal_mock
-    sys.path.insert(0, MOCK_DIR)
-    try:
-        import unreal_mock as unreal
-        # 覆盖默认的 DeprecatedError
-        if hasattr(unreal, 'DeprecatedError'):
-             DeprecatedError = unreal.DeprecatedError
-    except ImportError as e:
-        # print(f"❌ 导入 mock_unreal 失败: {e}")
-        unreal = None
-else:
-    # print("⚠️ 将在仅静态分析模式下运行 (无运行时 API 检查)")
-    unreal = None
+# 全局变量用于存储用户指定的 stub 路径
+_custom_stub_path = None
+
+def init_unreal_module(custom_stub_path: Optional[str] = None):
+    """初始化 unreal mock 模块
+
+    Args:
+        custom_stub_path: 用户指定的 unreal.py stub 文件路径（通过 --input 参数）
+
+    Returns:
+        unreal module or None
+    """
+    global DeprecatedError
+
+    # 尝试加载 mock_unreal
+    if ensure_mock_module(custom_stub_path):
+        # 直接将 MOCK_DIR 加入 path，并导入 unreal_mock
+        sys.path.insert(0, MOCK_DIR)
+        try:
+            import unreal_mock as unreal
+            # 覆盖默认的 DeprecatedError
+            if hasattr(unreal, 'DeprecatedError'):
+                DeprecatedError = unreal.DeprecatedError
+            return unreal
+        except ImportError as e:
+            # print(f"❌ 导入 mock_unreal 失败: {e}")
+            return None
+    else:
+        # print("⚠️ 将在仅静态分析模式下运行 (无运行时 API 检查)")
+        return None
+
+# 初始化时不加载，等到 main() 中根据参数决定
+unreal = None
 
 # C++ 元数据处理
 METADATA_PATH = os.path.join(MOCK_DIR, "metadata.json")
@@ -616,12 +644,18 @@ def query_api(query: str):
             print(f"❌ 类 {class_name} 不存在")
 
 def main():
+    global unreal
+
     parser = argparse.ArgumentParser(description="UE5 Python API 验证器")
     parser.add_argument("path", nargs="?", help="要验证的脚本路径")
     parser.add_argument("--query", "-q", help="查询 API 信息")
-    
+    parser.add_argument("--input", "-i", help="指定 unreal.py stub 文件的路径（用于生成 mock 模块）")
+
     args = parser.parse_args()
-    
+
+    # 初始化 unreal 模块（如果用户指定了 --input，则使用该路径）
+    unreal = init_unreal_module(args.input)
+
     if args.query:
         query_api(args.query)
     elif args.path:

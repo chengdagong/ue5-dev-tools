@@ -37,6 +37,7 @@ class MethodInfo:
     is_staticmethod: bool = False
     is_deprecated: bool = False
     deprecated_msg: str = ""
+    params: List[Tuple[str, str, str]] = field(default_factory=list)  # (name, type, default)
 
 
 @dataclass
@@ -195,19 +196,10 @@ def check_deprecated(docstring: str) -> Tuple[bool, str]:
     return False, ""
 
 
-def parse_method_signature(sig_line: str) -> Tuple[str, str]:
-    """解析方法签名，返回 (方法名, 返回类型)"""
-    # 匹配 def method_name(...) -> ReturnType:
-    match = re.match(r'\s*def\s+(\w+)\s*\([^)]*\)\s*(?:->\s*([^:]+))?\s*:', sig_line)
-    if match:
-        return match.group(1), (match.group(2) or "None").strip()
-    return "", "None"
-
-
-def parse_init_params(sig_line: str) -> List[Tuple[str, str, str]]:
-    """解析 __init__ 方法的参数"""
-    # 提取参数部分
-    match = re.search(r'def\s+__init__\s*\(([^)]*)\)', sig_line)
+def parse_params(sig_line: str) -> List[Tuple[str, str, str]]:
+    """解析方法的参数"""
+    # 提取参数部分: def func_name(...) -> ...
+    match = re.search(r'def\s+\w+\s*\(([^)]*)\)', sig_line)
     if not match:
         return []
     
@@ -235,6 +227,10 @@ def parse_init_params(sig_line: str) -> List[Tuple[str, str, str]]:
     result = []
     for param in params:
         if param == 'self' or param.startswith('*'):
+            # 如果是 *args, **kwargs 我们暂时忽略，或者可以特殊处理
+            # 但通常我们想保留它们
+            if param.startswith('*'):
+                 result.append((param, "Any", None))
             continue
         
         # 解析 name: type = default
@@ -249,6 +245,22 @@ def parse_init_params(sig_line: str) -> List[Tuple[str, str, str]]:
             result.append((param, "Any", None))
     
     return result
+
+
+def parse_method_signature(sig_line: str) -> Tuple[str, str, List[Tuple[str, str, str]]]:
+    """解析方法签名，返回 (方法名, 返回类型, 参数列表)"""
+    # 匹配 def method_name(...) -> ReturnType:
+    match = re.match(r'\s*def\s+(\w+)\s*\([^)]*\)\s*(?:->\s*([^:]+))?\s*:', sig_line)
+    name = ""
+    return_type = "None"
+    params = []
+
+    if match:
+        name = match.group(1)
+        return_type = (match.group(2) or "None").strip()
+        params = parse_params(sig_line)
+
+    return name, return_type, params
 
 
 def parse_stub_file(file_path: str) -> List[ClassInfo]:
@@ -295,7 +307,7 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
         for m in method_pattern.finditer(class_body):
             decorator = m.group(1).strip() if m.group(1) else ""
             method_line = m.group(0)
-            method_name, return_type = parse_method_signature(method_line)
+            method_name, return_type, params = parse_method_signature(method_line)
             
             # 跳过解析失败的方法
             if not method_name:
@@ -318,12 +330,13 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
                 is_classmethod='@classmethod' in decorator,
                 is_staticmethod='@staticmethod' in decorator,
                 is_deprecated=is_deprecated,
-                deprecated_msg=deprecated_msg
+                deprecated_msg=deprecated_msg,
+                params=params
             )
             
             if method_name == '__init__':
                 class_info.init_signature = method_line.strip()
-                class_info.init_params = parse_init_params(method_line)
+                class_info.init_params = params
             else:
                 class_info.methods.append(method_info)
         
@@ -532,13 +545,20 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
             param_strs = ['self']
             sanitized_params = []  # 记录被安全化处理的参数
             for name, type_hint, default in cls.init_params:
-                if default:
+                if name.startswith('*'): # *args or **kwargs
+                    # 变长参数不加默认值
+                    if type_hint and type_hint != "Any":
+                         param_strs.append(f'{name}: {type_hint}')
+                    else:
+                         param_strs.append(f'{name}')
+                elif default:
                     safe_default = sanitize_default_value(default)
-                    param_strs.append(f'{name}={safe_default}')
+                    param_strs.append(f'{name}: {type_hint} = {safe_default}')
                     if safe_default != default:
                         sanitized_params.append((name, default))
                 else:
-                    param_strs.append(f'{name}=None')
+                    # 对于 Mock，给所有普通参数默认值 None 以增强兼容性
+                    param_strs.append(f'{name}: {type_hint} = None')
             
             # 如果有参数被安全化处理，添加 TODO 注释
             if sanitized_params:
@@ -555,7 +575,8 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
         
         # 设置参数为属性
         for name, type_hint, default in cls.init_params:
-            lines.append(f'        self._properties["{name}"] = {name}')
+            if not name.startswith('*'):
+                 lines.append(f'        self._properties["{name}"] = {name}')
         
         # 初始化所有 property
         for prop in cls.properties:
@@ -609,14 +630,39 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
         
         lines.append('')
         
+        # 构建参数列表
+        param_strs = []
+        if method.is_classmethod:
+             param_strs.append('cls')
+        elif method.is_staticmethod:
+             pass
+        else:
+             param_strs.append('self')
+             
+        sanitized_params = []
+        if method.params:
+            for name, type_hint, default in method.params:
+                if default:
+                    safe_default = sanitize_default_value(default)
+                    param_strs.append(f'{name}: {type_hint} = {safe_default}')
+                    if safe_default != default:
+                        sanitized_params.append((name, default))
+                else:
+                    if name.startswith('*'): # *args or **kwargs
+                         param_strs.append(f'{name}')
+                    else:
+                         param_strs.append(f'{name}: {type_hint}')
+        else:
+            # Fallback (应该不会发生，除非解析失败)
+            param_strs.append("*args")
+            param_strs.append("**kwargs")
+
         if method.is_classmethod:
             lines.append('    @classmethod')
-            lines.append(f'    def {method.name}(cls, *args, **kwargs) -> {method.return_type}:')
         elif method.is_staticmethod:
             lines.append('    @staticmethod')
-            lines.append(f'    def {method.name}(*args, **kwargs) -> {method.return_type}:')
-        else:
-            lines.append(f'    def {method.name}(self, *args, **kwargs) -> {method.return_type}:')
+            
+        lines.append(f'    def {method.name}({", ".join(param_strs)}) -> {method.return_type}:')
         
         if method.docstring:
             # 简化 docstring
@@ -639,21 +685,58 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
 
 def main():
     import argparse
+    import sys
+    
+    # 确保能导入同目录下的 config 模块
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    
+    has_config = False
+    input_path = None
+    output_dir = None
+    
+    try:
+        import config
+        has_config = True
+        project_dir = config.get_project_root()
+        input_path = config.resolve_stub_path(project_dir)
+        output_dir = config.get_mock_dir(project_dir)
+    except ImportError:
+        pass
     
     parser = argparse.ArgumentParser(description='将 Unreal Python 存根文件转换为 Mock 模块')
-    parser.add_argument('--input', '-i', default='Intermediate/PythonStub/unreal.py',
-                       help='输入的存根文件路径')
-    parser.add_argument('--output', '-o', default='mock_unreal',
-                       help='输出目录')
+    
+    if not has_config:
+        parser.add_argument('--input', '-i', required=True, help='输入的存根文件路径')
+        parser.add_argument('--output', '-o', required=True, help='输出目录')
+    else:
+        # 如果有配置，我们不接受路径参数，强制使用配置
+        # 为了让 --help 正常显示，我们可以添加帮助信息说明
+        parser.description += " (已加载配置，路径参数被锁定)"
     
     args = parser.parse_args()
     
-    print(f"解析存根文件: {args.input}")
-    classes = parse_stub_file(args.input)
+    # 获取最终路径
+    if not has_config:
+        input_path = args.input
+        output_dir = args.output
+        
+    if not input_path:
+        print(f"❌ 错误: 未能找到 Unreal Stub 文件 (Project: {config.get_project_root() if has_config else 'Unknown'})")
+        sys.exit(1)
+        
+    print(f"解析存根文件: {input_path}")
+    if not os.path.exists(input_path):
+         print(f"❌ 文件不存在: {input_path}")
+         sys.exit(1)
+         
+    classes = parse_stub_file(input_path)
     print(f"找到 {len(classes)} 个类定义")
     
     print(f"生成 Mock 模块...")
-    generate_mock_module(classes, args.output)
+    print(f"输出目录: {output_dir}")
+    generate_mock_module(classes, output_dir)
 
 
 if __name__ == '__main__':

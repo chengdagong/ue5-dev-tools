@@ -13,35 +13,16 @@ import argparse
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-
-def get_plugin_root() -> Path:
-    """
-    获取插件根目录
-
-    优先级：
-    1. CLAUDE_PLUGIN_ROOT 环境变量
-    2. 脚本位置推断（假设 scripts/setup-vscode.py 在插件内）
-    """
-    if "CLAUDE_PLUGIN_ROOT" in os.environ:
-        return Path(os.environ["CLAUDE_PLUGIN_ROOT"])
-
-    # Fallback: 从脚本位置推断
-    # 假设: <plugin-root>/skills/remote-exec-and-debug/scripts/setup-vscode.py
-    script_dir = Path(__file__).parent.absolute()
-    return script_dir.parent.parent.parent
-
-
-def get_project_root() -> Path:
-    """
-    获取项目根目录
-
-    优先级：
-    1. CLAUDE_PROJECT_DIR 环境变量
-    2. 当前工作目录
-    """
-    if "CLAUDE_PROJECT_DIR" in os.environ:
-        return Path(os.environ["CLAUDE_PROJECT_DIR"])
-    return Path.cwd()
+# Add dependency check and import from executor's lib
+plugin_root = Path(__file__).parent.parent.parent.parent
+executor_lib = plugin_root / "skills" / "ue5-python-executor" / "lib"
+if not executor_lib.exists():
+    print("ERROR: ue5-python-executor skill not found", file=sys.stderr)
+    print(f"Expected location: {executor_lib}", file=sys.stderr)
+    print("Please ensure ue5-python-executor skill is installed", file=sys.stderr)
+    sys.exit(1)
+sys.path.insert(0, str(executor_lib))
+from ue5_remote import get_plugin_root, get_project_root
 
 
 def create_launch_config(plugin_root: Path) -> Dict[str, Any]:
@@ -88,9 +69,11 @@ def create_launch_config(plugin_root: Path) -> Dict[str, Any]:
 
 def create_tasks_config(plugin_root: Path) -> Dict[str, Any]:
     """创建 tasks.json 配置"""
-    # 计算脚本的绝对路径
-    remote_execute_script = plugin_root / "skills" / "remote-exec-and-debug" / "scripts" / "remote-execute.py"
-    start_debug_script = plugin_root / "skills" / "remote-exec-and-debug" / "scripts" / "start_debug_server.py"
+    # 计算脚本的绝对路径（引用 executor 和 debugger 技能）
+    executor_skill = plugin_root / "skills" / "ue5-python-executor"
+    remote_execute_script = executor_skill / "scripts" / "remote-execute.py"
+    debugger_skill = plugin_root / "skills" / "ue5-vscode-debugger"
+    start_debug_script = debugger_skill / "scripts" / "start_debug_server.py"
 
     return {
         "version": "2.0.0",
@@ -325,12 +308,12 @@ def main():
     project_root = args.project if args.project else get_project_root()
     plugin_root = get_plugin_root()
 
-    # 验证插件路径
-    remote_exec_script = plugin_root / "skills" / "remote-exec-and-debug" / "scripts" / "remote-execute.py"
+    # 验证插件路径（验证依赖的 executor 技能）
+    remote_exec_script = plugin_root / "skills" / "ue5-python-executor" / "scripts" / "remote-execute.py"
     if not remote_exec_script.exists():
-        print(f"错误: 无法找到插件脚本: {remote_exec_script}", file=sys.stderr)
+        print(f"错误: 无法找到 ue5-python-executor 技能脚本: {remote_exec_script}", file=sys.stderr)
         print(f"插件根目录: {plugin_root}", file=sys.stderr)
-        print("请确保 CLAUDE_PLUGIN_ROOT 环境变量正确设置", file=sys.stderr)
+        print("请确保 ue5-python-executor 技能已安装", file=sys.stderr)
         sys.exit(1)
 
     # 设置配置

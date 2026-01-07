@@ -15,6 +15,11 @@ import argparse
 from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
 
+# Add lib directory to Python path
+lib_path = Path(__file__).parent.parent / "lib"
+sys.path.insert(0, str(lib_path))
+from ue5_remote import get_default_project_path
+
 
 def find_uproject(project_root: Path) -> Optional[Path]:
     """
@@ -278,19 +283,6 @@ def run_config_check(project_root: Path, auto_fix: bool = False) -> Dict[str, An
         result["summary"] = "所有配置已正确"
 
     return result
-
-
-def get_default_project_path() -> Path:
-    """
-    获取默认项目路径
-
-    优先级：
-    1. CLAUDE_PROJECT_DIR 环境变量
-    2. 当前工作目录
-    """
-    if "CLAUDE_PROJECT_DIR" in os.environ:
-        return Path(os.environ["CLAUDE_PROJECT_DIR"])
-    return Path.cwd()
 
 
 def main():

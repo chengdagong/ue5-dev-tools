@@ -1,17 +1,22 @@
 {
     "name": "ue5-dev-tools",
     "version": "1.0.0",
-    "description": "验证 UE5 Python 脚本的 API 使用是否正确，检测 deprecated API 和参数约束",
+    "description": "Comprehensive UE5 Python development toolkit: validate API usage, execute scripts remotely, debug with VSCode, and follow best-practice workflows for UE5 Editor scripting",
     "author": {
-        "name": "UE5 Python Validator"
+        "name": "UE5 Dev Tools"
     },
     "keywords": [
         "unreal",
+        "ue5",
         "python",
         "api",
         "validator",
-        "ue5",
-        "deprecated"
+        "executor",
+        "debugger",
+        "workflow",
+        "remote-execution",
+        "vscode",
+        "editor-scripting"
     ],
     "skills": "./skills/",
     "commands": "./commands/"

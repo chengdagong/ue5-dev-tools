@@ -539,26 +539,62 @@ def validate_file(filepath: str):
 
 def query_api(query: str):
     print(f"\n查询 API: {query}")
-    
+
+    # 参数预处理：拒绝包含空格的查询
+    if ' ' in query:
+        print("❌ 错误: 查询参数不能包含空格")
+        print("\n正确的使用方式:")
+        print("  - 查询类: unreal.<ClassName>")
+        print("    示例: unreal.Actor, unreal.EditorLevelLibrary")
+        print("  - 查询方法: unreal.<ClassName>.<method_name>")
+        print("    示例: unreal.Actor.set_actor_location")
+        print("  - 查询模块级函数: unreal.<function_name>")
+        print("    示例: unreal.log, unreal.log_warning")
+        return
+
+    # 自动添加 "unreal." 前缀（如果查询格式简单且未包含前缀）
+    if not query.startswith('unreal.'):
+        # 检查基本格式有效性
+        if not query or query.startswith('.') or query.endswith('.') or '..' in query:
+            print("❌ 错误: 查询格式不正确")
+            print("\n正确的格式:")
+            print("  - unreal.<name>")
+            print("  - unreal.<ClassName>.<member_name>")
+            return
+        # 自动添加前缀
+        query = 'unreal.' + query
+        print(f"自动补全为: {query}")
+
+    # 去掉 "unreal." 前缀，获取实际的查询内容
+    query_without_prefix = query[7:]  # len("unreal.") = 7
+
+    # 格式验证
+    if not query_without_prefix or query_without_prefix.endswith('.') or '..' in query_without_prefix:
+        print("❌ 错误: 查询格式不正确")
+        print("\n正确的格式:")
+        print("  - unreal.<name>")
+        print("  - unreal.<ClassName>.<member_name>")
+        return
+
     if not unreal:
         print("错误: 无法加载 mock_unreal 模块，无法查询。")
         return
 
-    parts = query.split('.')
+    parts = query_without_prefix.split('.')
     if len(parts) == 1:
         class_name = parts[0]
         if hasattr(unreal, class_name):
             cls = getattr(unreal, class_name)
             print(f"✅ 类 {class_name} 存在")
             print(f"文档: {cls.__doc__ or '无'}")
-            
+
             # 显示 C++ 元数据
             if class_name in METADATA:
                 print("\n[C++ 元数据]")
                 print(json.dumps(METADATA[class_name], indent=2, ensure_ascii=False))
         else:
             print(f"❌ 类 {class_name} 不存在")
-            
+
     elif len(parts) == 2:
         class_name, member_name = parts
         if hasattr(unreal, class_name):
@@ -567,6 +603,13 @@ def query_api(query: str):
                 member = getattr(cls, member_name)
                 print(f"✅ {class_name}.{member_name} 存在")
                 print(f"文档: {member.__doc__ or '无'}")
+
+                # Display C++ metadata for the method if available
+                if class_name in METADATA:
+                    methods = METADATA[class_name].get("functions", {})
+                    if member_name in methods:
+                        print("\n[C++ 元数据]")
+                        print(json.dumps(methods[member_name], indent=2, ensure_ascii=False))
             else:
                 print(f"❌ {class_name}.{member_name} 不存在")
         else:

@@ -8,7 +8,9 @@ After cloning this repository, run the installation script to activate the hooks
 
 ```bash
 # From the ue5-dev-tools directory
-./scripts/install-hooks.sh
+python scripts/install_hooks.py
+# or
+python3 scripts/install_hooks.py
 ```
 
 This will install all hooks from this directory to `.git/hooks/`.

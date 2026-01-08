@@ -90,19 +90,30 @@ def should_bump_version():
     return False
 
 def increment_version(version_str):
-    """Increment the patch version (x.y.z -> x.y.z+1)"""
+    """Increment the version with rollover (x.y.9 -> x.y+1.0, x.9.9 -> x+1.0.0)"""
     parts = version_str.split('.')
     if len(parts) != 3:
         print(f"Warning: Unexpected version format '{version_str}', expected x.y.z")
         return version_str
 
-    major, minor, patch = parts
     try:
-        new_patch = int(patch) + 1
-        return f"{major}.{minor}.{new_patch}"
+        major = int(parts[0])
+        minor = int(parts[1])
+        patch = int(parts[2])
     except ValueError:
-        print(f"Warning: Cannot parse patch version '{patch}' as integer")
+        print(f"Warning: Cannot parse version '{version_str}' as integers")
         return version_str
+
+    # Increment with rollover
+    patch += 1
+    if patch > 9:
+        patch = 0
+        minor += 1
+        if minor > 9:
+            minor = 0
+            major += 1
+
+    return f"{major}.{minor}.{patch}"
 
 def main():
     # Check if version bump is needed based on staged files

@@ -517,3 +517,17 @@ This skill orchestrates the following supporting skills:
    - Track success/failure counts
    - Log meaningful progress
    - Provide actionable summaries
+
+## Additional Resources
+
+### Best Practices Reference
+For comprehensive guidance on UE5 Python development patterns, see [best-practices.md](references/best-practices.md). Key topics include:
+- Core interaction mechanisms (subsystems vs static libraries)
+- Transaction management for undo/redo support
+- Asset Registry usage for efficient queries
+- And more proven patterns for production scripts
+
+### Example Scripts
+Reference implementations are available in [scripts/examples/](../../../scripts/examples/):
+- `add_gameplaytag_to_asset.py` - Demonstrates batch asset modification with transactions, error handling, and verification
+- Use these as templates for your own scripts

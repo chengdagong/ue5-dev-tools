@@ -121,11 +121,14 @@ git commit --no-verify -m "message"
 ## Running Tests
 
 ```bash
-# Run tests for a specific skill
-python3 -m pytest skills/api-validator/tests/ -v
+# Run all tests
+python3 -m pytest tests/ -v
 
-# Run all tests (if available)
-python3 -m pytest -v
+# Run unit tests only
+python3 -m pytest tests/unit/ -v
+
+# Run tests for a specific skill (e.g., api-validator)
+python3 -m pytest tests/unit/api_validator/ tests/integration/api_validator/ -v
 ```
 
 ## Code Style

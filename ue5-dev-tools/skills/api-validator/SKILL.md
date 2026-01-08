@@ -1,34 +1,58 @@
 ---
-name: UE5 Python API Validator
+name: api-validator
 description: Validate UE5 Python scripts for correctness, check for deprecated APIs, and verify parameter constraints.
 ---
 
-# UE5 Python API Validator
+# UE5 API Validator
 
-Use this skill to validate Unreal Engine Python scripts. It checks for:
-- Existence of classes and methods
-- Usage of deprecated APIs
-- Parameter constraints (e.g. min/max values)
-
-It automatically generates a mock `unreal` module from your project's Python stub file (`Intermediate/PythonStub/unreal.py`) to perform accurate validation.
+Query class or function definitions from UE5 unreal.py stub files.
 
 ## Usage
 
-### 1. Validate a Script
-To validate a specific script file:
-
 ```bash
-python scripts/validate.py <path_to_script>
+# Query a class definition
+python scripts/api-search.py unreal.InputMappingContext
+
+# Query a module-level function
+python scripts/api-search.py unreal.log
+
+# Specify stub file explicitly
+python scripts/api-search.py --input /path/to/unreal.py unreal.Actor
 ```
 
-### 2. Check API Details
-To look up details for a class or method:
+## Arguments
 
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `query` | | Yes | Query string (e.g., `unreal.ClassName` or `unreal.function_name`) |
+| `--input` | `-i` | No | Path to unreal.py stub file. Auto-detects from `$CLAUDE_PROJECT_DIR/Intermediate/PythonStub/unreal.py` if not provided |
+
+## Output
+
+- **Class query**: Returns full class definition including docstring, properties, and methods
+- **Function query**: Returns function signature and docstring
+- **No match**: Exits with code 1 and prints error to stderr
+
+## Examples
+
+### Query a class
 ```bash
-python scripts/validate.py --query <ClassName.method_name>
+$ python scripts/api-search.py unreal.InputMappingContext
+
+class InputMappingContext(DataAsset):
+    r"""
+    UInputMappingContext : A collection of key to action mappings...
+    """
+    ...
 ```
 
-## How It Works
+### Query a function
+```bash
+$ python scripts/api-search.py unreal.log
 
-- **Auto-Mock Generation**: The skill automatically converts the `unreal.py` stub file into a functional `mock_unreal` module located in `lib/mock_unreal`.
-- **Runtime Validation**: Uses the generated mock module to simulate UE5 Python environment.
+def log(arg: Any) -> None:
+    r"""
+    log(arg: Any) -> None -- log the given argument as information in the LogPython category
+    """
+    ...
+```

@@ -48,7 +48,7 @@ Analysis:
 Before writing code, verify APIs exist and understand their usage:
 
 ```bash
-# Query API existence and parameters
+# Query class definitions
 Use check-api skill to query:
 - unreal.GameplayAbility
 - unreal.EditorAssetLibrary
@@ -56,10 +56,11 @@ Use check-api skill to query:
 ```
 
 Verify:
-- Classes and methods exist in Python API
-- Parameter types and constraints
-- Return types
-- Any deprecation warnings
+- Classes exist in Python API
+- Available methods and properties (from class definition output)
+- Return types from docstrings
+
+**Note**: check-api supports class and module-level function queries only. To check a method, query the class and look for the method in the output.
 
 #### b) Write Exploratory Scripts
 Use **ue5-python-executor** skill for rapid iteration in an open UE5 Editor:
@@ -158,23 +159,19 @@ for path, error in results["failed"]:
 
 ### Phase 4: Validation and Testing
 
-**Both steps required:**
-
-#### a) Static Validation - ALWAYS Required
-Use **validate-script** skill to check the complete script:
+#### a) API Verification with check-api
+Before testing, verify key APIs used in your script:
 
 ```bash
-# Validates API usage, parameters, deprecations
-Use validate-script skill with your script file
+# Query classes used in your script
+Use check-api skill to verify:
+- Main classes your script depends on
+- Module-level functions like unreal.log
 ```
 
-This catches:
-- Non-existent APIs
-- Wrong parameter types
-- Deprecated methods
-- Private constructors
-
-**Do not skip this step.** Static validation catches issues before runtime.
+This helps catch:
+- Non-existent classes
+- Misspelled class names
 
 #### b) Dynamic Testing with Progressive Approach
 Use **ue5-python-executor** skill:
@@ -209,9 +206,9 @@ When problems occur, follow this systematic approach:
 #### For API Errors
 
 **Step 1: Return to check-api**
-- Re-query the problematic API
-- Verify you're using correct method name, parameters
-- Check for alternate methods
+- Re-query the class containing the problematic API
+- Verify you're using correct method name from the class definition
+- Check for alternate methods in the class output
 
 **Step 2: Investigate Engine C++ Source**
 If check-api finds no issues but the API still doesn't work, investigate C++ source code.
@@ -320,13 +317,14 @@ manager = unreal.GameplayTagManager.get()  # AttributeError: no such class
 ```
 
 **Detection:**
-- validate-script skill will catch this
-- Based on Python stub file analysis
+- check-api will show "No match found" for non-existent classes
+- Runtime AttributeError when trying to use
 
 **Solutions:**
-1. Check if there's a Python alternative API
-2. Use Blueprint Function Library approach (expose via C++)
-3. Inform user the feature isn't available in Python
+1. Use check-api to verify class exists
+2. Check if there's a Python alternative API
+3. Use Blueprint Function Library approach (expose via C++)
+4. Inform user the feature isn't available in Python
 
 ### Pitfall 2: Private Constructors
 
@@ -348,8 +346,7 @@ tag = unreal.GameplayTagsManager.request_gameplay_tag(unreal.Name("Ability.Melee
 ```
 
 **Detection:**
-- validate-script may catch this
-- Runtime error if not caught
+- Runtime error when trying to instantiate
 - C++ source investigation reveals private/public constructors
 
 **Solution:**
@@ -465,15 +462,13 @@ This skill orchestrates the following supporting skills:
 
 ### check-api (from api-validator skill)
 **When to use:** Phase 2 and Phase 5
-- Query API existence before writing code
-- Verify method signatures and parameters
+- Query class definitions before writing code
+- Verify classes exist and see their available methods
 - Re-check when encountering API errors
 
-### validate-script (from api-validator skill)
-**When to use:** Phase 4a (always required)
-- Static validation of complete scripts
-- Catches API errors before runtime
-- Detects deprecated methods and parameter issues
+**Limitations:**
+- Only supports class and module-level function queries
+- To check a method, query the parent class
 
 ### ue5-python-executor
 **When to use:** Phase 2b, Phase 4b
@@ -489,9 +484,9 @@ This skill orchestrates the following supporting skills:
 
 ## Best Practices Summary
 
-1. **Always validate before executing**
+1. **Always verify APIs before using**
    - Phase 2a: check-api before writing
-   - Phase 4a: validate-script before running
+   - Phase 4a: verify key classes with check-api
 
 2. **Progressive testing approach**
    - Exploratory scripts first (Phase 2b)

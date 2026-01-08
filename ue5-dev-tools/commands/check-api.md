@@ -1,30 +1,30 @@
 ---
-description: Query detailed information about UE5 APIs
+description: Query UE5 class or function definitions
 ---
 
 # /check-api
 
-Query detailed information about a specified UE5 class or method, including parameter constraints, deprecation status, usage examples, etc.
+Query class or module-level function definitions from UE5 Python API.
 
 ## Usage
 
 ```
 /check-api unreal.<ClassName>
-/check-api unreal.<ClassName>.<method_name>
 /check-api unreal.<function_name>
 ```
 
 **Important Notes:**
 - **Must start with `unreal.`**
-- **Must use exact class or method names** (e.g., `unreal.Actor`, `unreal.Actor.set_actor_location`)
-- **Format requirement**: Only accepts `unreal.<name>` or `unreal.<ClassName>.<member_name>` format
-- **Supports module-level function queries** (e.g., `unreal.log`, `unreal.log_warning`)
+- **Must use exact class or function names** (e.g., `unreal.Actor`, `unreal.log`)
+- **Supports class queries**: Returns full class definition including docstring, properties, and methods
+- **Supports module-level function queries**: Returns function signature and docstring
+- **Does NOT support**: Method queries (e.g., `unreal.Actor.set_actor_location`) - query the class instead to see its methods
 
 ## Steps
 
 1. Run the API query script:
    ```bash
-   python ${CLAUDE_PLUGIN_ROOT}/skills/api-validator/scripts/validate.py --query "$ARGUMENTS"
+   python ${CLAUDE_PLUGIN_ROOT}/skills/api-validator/scripts/api-search.py "$ARGUMENTS"
    ```
 
 2. **Display the script's output directly**.
@@ -36,38 +36,16 @@ Query detailed information about a specified UE5 class or method, including para
 
 ## Examples
 
-### Query Class Information
+### Query Class Definition
 ```
-/check-api unreal.Actor
-```
-
-Output:
-```
-Query API: unreal.Actor
-✅ Class Actor exists
-Documentation: ...
+/check-api unreal.InputMappingContext
 ```
 
-### Query Method Information
-```
-/check-api unreal.Actor.set_actor_location
-```
+Output includes class definition with docstring, properties, and methods.
 
-Output:
-```
-Query API: unreal.Actor.set_actor_location
-✅ Actor.set_actor_location exists
-Documentation: ...
-```
-
-### Query Module-Level Functions
+### Query Module-Level Function
 ```
 /check-api unreal.log
 ```
 
-Output:
-```
-Query API: unreal.log
-✅ Function log exists
-Documentation: ...
-```
+Output includes function signature and docstring.

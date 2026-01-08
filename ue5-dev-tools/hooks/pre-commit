@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Pre-commit hook to automatically increment version in plugin.json
 Increments the patch version (0.0.1) on every commit
@@ -6,8 +7,13 @@ Increments the patch version (0.0.1) on every commit
 
 import json
 import sys
+import io
 import os
 from pathlib import Path
+
+# Ensure UTF-8 output on all platforms
+if sys.version_info[0] >= 3:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Get the git repository root
 git_root = Path(__file__).parent.parent.parent

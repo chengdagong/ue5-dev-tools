@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Git Hooks Installation Script (Cross-platform)
 
@@ -10,8 +11,13 @@ Works on Windows, macOS, and Linux
 
 import os
 import sys
+import io
 import shutil
 from pathlib import Path
+
+# Ensure UTF-8 output on all platforms
+if sys.version_info[0] >= 3:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 
 class Colors:

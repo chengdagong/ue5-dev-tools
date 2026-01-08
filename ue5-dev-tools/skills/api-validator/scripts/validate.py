@@ -7,9 +7,9 @@ import os
 import sys
 import argparse
 import ast
+import inspect
 import json
 import importlib.util
-import subprocess
 import subprocess
 from typing import List, Dict, Optional, Any, Tuple
 
@@ -29,21 +29,11 @@ if not PLUGIN_ROOT:
 # Define internal plugin paths
 SKILL_ROOT = os.path.join(PLUGIN_ROOT, "skills", "api-validator")
 CONVERTER_SCRIPT = os.path.join(SKILL_ROOT, "scripts", "convert_stub_to_mock.py")
-EXTRACTOR_SCRIPT = os.path.join(SKILL_ROOT, "scripts", "cpp_metadata_extractor.py")
 
 # Get project root and Mock path (via config)
 PROJECT_ROOT = config.get_project_root()
 MOCK_DIR = config.get_mock_dir(PROJECT_ROOT)
 LIB_DIR = MOCK_DIR
-
-# Common UE5 source paths (MacOS)
-POTENTIAL_UE5_SOURCE_PATHS = [
-    "/Users/Shared/Epic Games/UE_5.7/Engine/Source",
-    "/Users/Shared/Epic Games/UE_5.6/Engine/Source",
-    "/Users/Shared/Epic Games/UE_5.5/Engine/Source",
-    "/Users/Shared/Epic Games/UE_5.4/Engine/Source",
-    "/Users/Shared/Epic Games/UE_5.3/Engine/Source",
-]
 
 def ensure_mock_module(custom_stub_path: Optional[str] = None):
     """Ensure mock_unreal module exists, try to generate if not
@@ -87,50 +77,6 @@ def ensure_mock_module(custom_stub_path: Optional[str] = None):
         print(f"❌ An error occurred: {e}")
         return False
 
-def ensure_metadata(output_path: str):
-    """Ensure C++ metadata exists, try to extract from UE5 source if not"""
-    if os.path.exists(output_path):
-        return
-
-    print("⚠️ C++ metadata not detected, attempting to auto-extract...")
-    
-    ue5_source = None
-    # 1. Try to get from environment variable UE5_ENGINE_DIR
-    env_ue5 = os.environ.get("UE_ENGINE_DIR")
-    if env_ue5 and os.path.exists(os.path.join(env_ue5, "Engine/Source")):
-        ue5_source = os.path.join(env_ue5, "Engine/Source")
-    
-    # 2. Try common paths
-    if not ue5_source:
-        for p in POTENTIAL_UE5_SOURCE_PATHS:
-            if os.path.isdir(p):
-                ue5_source = p
-                break
-    
-    if not ue5_source:
-        print("ℹ️ UE5 source path not detected, skipping metadata extraction.")
-        return
-
-    print(f"ℹ️ Detected UE5 source: {ue5_source}")
-    target_scan_path = os.path.join(ue5_source, "Runtime/Engine/Classes/GameFramework")
-    
-    if not os.path.exists(target_scan_path):
-        print(f"ℹ️ Engine/Classes/GameFramework not found in source path, skipping.")
-        return
-
-    print("⏳ Extracting metadata (may take a few seconds)...")
-    try:
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        subprocess.check_call([
-            sys.executable,
-            EXTRACTOR_SCRIPT,
-            "--ue5-path", target_scan_path,
-            "--output", output_path
-        ])
-        print("✅ Metadata extracted successfully!")
-    except Exception as e:
-        print(f"❌ Metadata extraction failed: {e}")
-
 # Default definition to prevent NameError
 class DeprecatedError(Exception):
     pass
@@ -168,18 +114,6 @@ def init_unreal_module(custom_stub_path: Optional[str] = None):
 
 # Do not load at initialization, decide in main() based on arguments
 unreal = None
-
-# C++ Metadata processing
-METADATA_PATH = os.path.join(MOCK_DIR, "metadata.json")
-ensure_metadata(METADATA_PATH)
-
-METADATA = {}
-if os.path.exists(METADATA_PATH):
-    try:
-        with open(METADATA_PATH, 'r', encoding='utf-8') as f:
-            METADATA = json.load(f)
-    except Exception as e:
-        print(f"⚠️ Failed to load metadata: {e}")
 
 class ValidationReport:
     def __init__(self):
@@ -277,11 +211,6 @@ class AstValidator(ast.NodeVisitor):
             elif obj_name in self.variable_types:
                 class_name = self.variable_types[obj_name]
                 self._validate_method(class_name, member_name, node.lineno)
-                
-                # Check for editor property access
-                if member_name in ("get_editor_property", "set_editor_property"):
-                    self._validate_editor_property_access(class_name, node)
-                
                 # TODO: Can also check method arguments
 
         # Case 2: node.func.value is Attribute (unreal.SomeClass.static_method())
@@ -310,21 +239,16 @@ class AstValidator(ast.NodeVisitor):
 
         # Check if it is class or function
         if isinstance(member, type):
-            # It is a class, may need to detect if deprecated (Runtime & Metadata)
+            # It is a class, may need to detect if deprecated (Runtime)
             try:
                 # Try to instantiate to detect Runtime Deprecated
                 # Note: Here we mainly detect if constructor raises DeprecatedError
                 member()
             except DeprecatedError as e:
-                self.report.add_warning(f"Class '{member_name}' is deprecated (Runtime): {e}", node.lineno)
+                self.report.add_warning(f"Class '{member_name}' is deprecated: {e}", node.lineno)
             except Exception:
                 pass
-                
-            # Also check Metadata (because visit_Attribute was skipped)
-            if member_name in METADATA and METADATA[member_name].get("deprecated", False):
-                msg = METADATA[member_name].get("deprecation_message", "This class is deprecated")
-                self.report.add_warning(f"Class '{member_name}' is deprecated (Metadata): {msg}", node.lineno)
-                
+
             # Validate constructor arguments
             self._validate_constructor(member_name, node)
         else:
@@ -433,21 +357,16 @@ class AstValidator(ast.NodeVisitor):
             return
 
         cls = getattr(unreal, class_name)
-        
-        # 1. Dynamic check: Try instantiate to detect Deprecated
+
+        # Dynamic check: Try instantiate to detect Deprecated
         try:
             # Mock classes usually allow parameter-less instantiation
             _ = cls()
         except DeprecatedError as e:
-            self.report.add_warning(f"Class '{class_name}' is deprecated (Runtime): {e}", lineno)
+            self.report.add_warning(f"Class '{class_name}' is deprecated: {e}", lineno)
         except Exception:
             # Ignore other instantiation errors (although mock classes usually don't raise error)
             pass
-            
-        # 2. Static check: C++ Metadata
-        if class_name in METADATA and METADATA[class_name].get("deprecated", False):
-            msg = METADATA[class_name].get("deprecation_message", "This class is deprecated")
-            self.report.add_warning(f"Class '{class_name}' is deprecated (Metadata): {msg}", lineno)
 
     def _validate_method(self, class_name: str, method_name: str, lineno: int):
         if not unreal:
@@ -491,21 +410,12 @@ class AstValidator(ast.NodeVisitor):
                  try:
                      method()
                  except DeprecatedError as e:
-                     self.report.add_warning(f"Method '{class_name}.{method_name}' is deprecated (Runtime): {e}", lineno)
+                     self.report.add_warning(f"Method '{class_name}.{method_name}' is deprecated: {e}", lineno)
                  except Exception:
                      pass
 
         except Exception:
             pass
-        
-        # 2. Static check: Use metadata
-        if class_name in METADATA:
-            methods = METADATA[class_name].get("functions", {})
-            if method_name in methods:
-                func_data = methods[method_name]
-                if func_data.get("deprecated", False):
-                    msg = func_data.get("deprecation_message", "This method is deprecated")
-                    self.report.add_warning(f"Method '{class_name}.{method_name}' is deprecated (Metadata): {msg}", lineno)
 
     def visit_Assign(self, node):
         # Simple type inference: var = unreal.SomeClass()
@@ -519,31 +429,6 @@ class AstValidator(ast.NodeVisitor):
                             self.variable_types[target.id] = class_name
                             
         self.generic_visit(node)
-
-    def _validate_editor_property_access(self, class_name: str, node: ast.Call):
-        """Validates calls to get_editor_property and set_editor_property."""
-        if not node.args:
-            return
-
-        # First argument is the property name
-        prop_arg = node.args[0]
-        if not isinstance(prop_arg, ast.Constant) or not isinstance(prop_arg.value, str):
-            return # Runtime expression, cannot validate statically
-
-        prop_name = prop_arg.value
-        
-        # Check Metadata
-        if class_name in METADATA:
-            properties = METADATA[class_name].get("properties", {})
-            if prop_name not in properties:
-                # Some properties might be dynamic or missing from metadata, treat as warning or error?
-                # For now, if we have metadata for the class but not the property, it's suspicious.
-                self.report.add_error(f"Property '{prop_name}' does not exist in class '{class_name}' (Editor Property)", node.lineno)
-            else:
-                prop_data = properties[prop_name]
-                if prop_data.get("deprecated", False):
-                    msg = prop_data.get("deprecation_message", "This property is deprecated")
-                    self.report.add_warning(f"Property '{class_name}.{prop_name}' is deprecated: {msg}", node.lineno)
 
 
 def validate_file(filepath: str):
@@ -615,11 +500,6 @@ def query_api(query: str):
             cls = getattr(unreal, class_name)
             print(f"✅ Class {class_name} exists")
             print(f"Doc: {cls.__doc__ or 'None'}")
-
-            # Show C++ Metadata
-            if class_name in METADATA:
-                print("\n[C++ Metadata]")
-                print(json.dumps(METADATA[class_name], indent=2, ensure_ascii=False))
         else:
             print(f"❌ Class {class_name} does not exist")
 
@@ -631,13 +511,6 @@ def query_api(query: str):
                 member = getattr(cls, member_name)
                 print(f"✅ {class_name}.{member_name} exists")
                 print(f"Doc: {member.__doc__ or 'None'}")
-
-                # Display C++ metadata for the method if available
-                if class_name in METADATA:
-                    methods = METADATA[class_name].get("functions", {})
-                    if member_name in methods:
-                        print("\n[C++ Metadata]")
-                        print(json.dumps(methods[member_name], indent=2, ensure_ascii=False))
             else:
                 print(f"❌ {class_name}.{member_name} does not exist")
         else:

@@ -41,23 +41,3 @@ def setup_mock_unreal():
     unreal_mock.mock_add_spec(list(unreal_mock.__dict__.keys()) + ['Object', 'Actor', 'DeprecatedError'])
     
     return unreal_mock
-
-def create_mock_metadata():
-    """Returns a dictionary resembling the C++ metadata."""
-    return {
-        "Actor": {
-            "deprecated": False,
-            "functions": {
-                "get_actor_location": {"deprecated": False},
-                "k2_destroy_actor": {"deprecated": True, "deprecation_message": "Use DestroyActor instead"}
-            },
-            "properties": {
-                 "ActorLabel": {"deprecated": False, "type": "str"},
-                 "HiddenProp": {"deprecated": True, "deprecation_message": "Do not use"}
-            }
-        },
-        "DeprecatedClass": {
-            "deprecated": True,
-            "deprecation_message": "This class is no longer supported"
-        }
-    }

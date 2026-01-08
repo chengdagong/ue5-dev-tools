@@ -9,7 +9,6 @@ Use this skill to validate Unreal Engine Python scripts. It checks for:
 - Existence of classes and methods
 - Usage of deprecated APIs
 - Parameter constraints (e.g. min/max values)
-- Property access rights (read/write)
 
 It automatically generates a mock `unreal` module from your project's Python stub file (`Intermediate/PythonStub/unreal.py`) to perform accurate validation.
 
@@ -33,4 +32,3 @@ python scripts/validate.py --query <ClassName.method_name>
 
 - **Auto-Mock Generation**: The skill automatically converts the `unreal.py` stub file into a functional `mock_unreal` module located in `lib/mock_unreal`.
 - **Runtime Validation**: Uses the generated mock module to simulate UE5 Python environment.
-- **Metadata Analysis**: Uses C++ metadata (via `cpp_metadata_extractor.py`) for enhanced static analysis.

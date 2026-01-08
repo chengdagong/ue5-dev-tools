@@ -1,1 +1,23 @@
 # Test auxiliary file change
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Auto-generated E2E test projects
+ue5-dev-tools/tests/fixtures/E2ETestProject/
+ue5-dev-tools/tests/fixtures/AutoLaunchTestProject/
+ue5-dev-tools/tests/fixtures/ConfigFixTestProject/

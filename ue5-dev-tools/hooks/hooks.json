@@ -7,7 +7,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "python \"$CLAUDE_PLUGIN_ROOT/hooks/check_ue5_python.py\"",
+                        "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/check_ue5_python.py\"",
                         "timeout": 10
                     }
                 ]

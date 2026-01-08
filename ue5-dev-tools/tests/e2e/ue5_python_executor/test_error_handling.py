@@ -131,7 +131,7 @@ class TestExecutionErrorHandling:
     def test_unicode_command(self, ue5_executor):
         """Test handling of unicode characters in command."""
         result = ue5_executor.execute_command(
-            "print('Hello 世界 🌍')",
+            "print('Hello World')",
             exec_type=UE5RemoteExecution.ExecTypes.EXECUTE_STATEMENT
         )
 

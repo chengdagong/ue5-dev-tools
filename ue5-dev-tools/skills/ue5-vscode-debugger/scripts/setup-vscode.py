@@ -177,7 +177,7 @@ def merge_json_file(file_path: Path, new_config: Dict[str, Any], key: str) -> bo
             new_names = {item.get(name_key) for item in new_items}
 
             if new_names.issubset(existing_names):
-                print(f"✓ {file_path.name} already contains all necessary configurations, skipping")
+                print(f"[OK] {file_path.name} already contains all necessary configurations, skipping")
                 return False
 
             # Merge configurations
@@ -197,7 +197,7 @@ def merge_json_file(file_path: Path, new_config: Dict[str, Any], key: str) -> bo
             new_config = existing
 
         except json.JSONDecodeError as e:
-            print(f"⚠️  Warning: {file_path.name} format error, will backup and overwrite: {e}")
+            print(f"[WARN] Warning: {file_path.name} format error, will backup and overwrite: {e}")
             backup_path = file_path.with_suffix(file_path.suffix + '.backup')
             file_path.rename(backup_path)
             print(f"   Backup saved to: {backup_path}")
@@ -240,10 +240,10 @@ def setup_vscode_config(project_root: Path, plugin_root: Path, force: bool = Fal
         launch_json.parent.mkdir(parents=True, exist_ok=True)
         with open(launch_json, 'w', encoding='utf-8') as f:
             json.dump(launch_config, f, indent=2, ensure_ascii=False)
-        print(f"✓ Created {launch_json}")
+        print(f"[OK] Created {launch_json}")
     else:
         if merge_json_file(launch_json, launch_config, "configurations"):
-            print(f"✓ Updated {launch_json}")
+            print(f"[OK] Updated {launch_json}")
 
     # Process tasks.json
     print("Processing tasks.json...")
@@ -251,13 +251,13 @@ def setup_vscode_config(project_root: Path, plugin_root: Path, force: bool = Fal
         tasks_json.parent.mkdir(parents=True, exist_ok=True)
         with open(tasks_json, 'w', encoding='utf-8') as f:
             json.dump(tasks_config, f, indent=2, ensure_ascii=False)
-        print(f"✓ Created {tasks_json}")
+        print(f"[OK] Created {tasks_json}")
     else:
         if merge_json_file(tasks_json, tasks_config, "tasks"):
-            print(f"✓ Updated {tasks_json}")
+            print(f"[OK] Updated {tasks_json}")
 
     print()
-    print("✓ VSCode configuration completed!")
+    print("[OK] VSCode configuration completed!")
     print()
     print("Usage:")
     print("  1. Open any Python file in VSCode")

@@ -249,7 +249,7 @@ def parse_params(sig_line: str) -> List[Tuple[str, str, str]]:
 
 def parse_method_signature(sig_line: str) -> Tuple[str, str, List[Tuple[str, str, str]]]:
     """Parse method signature, return (method_name, return_type, parameter_list)"""
-    # 匹配 def method_name(...) -> ReturnType:
+    # Match def method_name(...) -> ReturnType:
     match = re.match(r'\s*def\s+(\w+)\s*\([^)]*\)\s*(?:->\s*([^:]+))?\s*:', sig_line)
     name = ""
     return_type = "None"
@@ -687,7 +687,7 @@ def main():
     import argparse
     import sys
 
-    # 确保能导入同目录下的 config 模块
+    # Ensure config module from same directory can be imported
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
@@ -724,12 +724,12 @@ def main():
     output_dir = args.output
 
     if not input_path:
-        print(f"❌ Error: Could not find Unreal Stub file (Project: {config.get_project_root() if has_config else 'Unknown'})")
+        print(f"[ERROR] Error: Could not find Unreal Stub file (Project: {config.get_project_root() if has_config else 'Unknown'})")
         sys.exit(1)
 
     print(f"Parsing stub file: {input_path}")
     if not os.path.exists(input_path):
-        print(f"❌ File not found: {input_path}")
+        print(f"[ERROR] File not found: {input_path}")
         sys.exit(1)
 
     classes = parse_stub_file(input_path)

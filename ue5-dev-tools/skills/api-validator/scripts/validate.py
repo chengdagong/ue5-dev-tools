@@ -45,7 +45,7 @@ def ensure_mock_module(custom_stub_path: Optional[str] = None):
     if os.path.exists(os.path.join(MOCK_DIR, "unreal_mock.py")):
         return True
 
-    print("⚠️ mock_unreal module not detected, attempting to auto-generate...")
+    print("[WARN] mock_unreal module not detected, attempting to auto-generate...")
 
     # Find stub file
     stub_path = custom_stub_path or config.resolve_stub_path(PROJECT_ROOT)
@@ -55,11 +55,11 @@ def ensure_mock_module(custom_stub_path: Optional[str] = None):
 
     # Validate custom path exists
     if custom_stub_path and not os.path.exists(custom_stub_path):
-        print(f"❌ Specified Stub file does not exist: {custom_stub_path}")
+        print(f"[ERROR] Specified Stub file does not exist: {custom_stub_path}")
         return False
 
-    print(f"ℹ️ Found Stub file: {stub_path}")
-    print(f"ℹ️ Generating Mock module to: {MOCK_DIR}")
+    print(f"[INFO] Found Stub file: {stub_path}")
+    print(f"[INFO] Generating Mock module to: {MOCK_DIR}")
 
     try:
         os.makedirs(MOCK_DIR, exist_ok=True)
@@ -68,13 +68,13 @@ def ensure_mock_module(custom_stub_path: Optional[str] = None):
         if custom_stub_path:
             cmd.extend(['--input', custom_stub_path, '--output', MOCK_DIR])
         subprocess.check_call(cmd)
-        print("✅ Mock module generated successfully!")
+        print("[OK] Mock module generated successfully!")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to generate Mock module: {e}")
+        print(f"[ERROR] Failed to generate Mock module: {e}")
         return False
     except Exception as e:
-        print(f"❌ An error occurred: {e}")
+        print(f"[ERROR] An error occurred: {e}")
         return False
 
 # Default definition to prevent NameError
@@ -106,10 +106,10 @@ def init_unreal_module(custom_stub_path: Optional[str] = None):
                 DeprecatedError = unreal.DeprecatedError
             return unreal
         except ImportError as e:
-            # print(f"❌ Failed to import mock_unreal: {e}")
+            # print(f"[ERROR] Failed to import mock_unreal: {e}")
             return None
     else:
-        # print("⚠️ Will run in static analysis only mode (no runtime API checks)")
+        # print("[WARN] Will run in static analysis only mode (no runtime API checks)")
         return None
 
 # Do not load at initialization, decide in main() based on arguments
@@ -123,13 +123,13 @@ class ValidationReport:
         self.stats = {"classes": 0, "methods": 0}
 
     def add_error(self, msg: str, line: int = 0):
-        self.errors.append(f"❌ Error (Line {line}): {msg}")
+        self.errors.append(f"[ERROR] Error (Line {line}): {msg}")
 
     def add_warning(self, msg: str, line: int = 0):
-        self.warnings.append(f"⚠️ Warning (Line {line}): {msg}")
+        self.warnings.append(f"[WARN] Warning (Line {line}): {msg}")
 
     def add_info(self, msg: str):
-        self.infos.append(f"ℹ️ Info: {msg}")
+        self.infos.append(f"[INFO] Info: {msg}")
 
     def print_report(self):
         print("\n=== UE5 Python API Validation Report ===\n")
@@ -138,7 +138,7 @@ class ValidationReport:
             print(info)
             
         if not self.errors and not self.warnings:
-            print("✅ Validation Passed! No issues found.")
+            print("[OK] Validation Passed! No issues found.")
         else:
             for warning in self.warnings:
                 print(warning)
@@ -455,7 +455,7 @@ def query_api(query: str):
 
     # Argument Preprocessing: Reject queries containing spaces
     if ' ' in query:
-        print("❌ Error: Query argument cannot contain spaces")
+        print("[ERROR] Error: Query argument cannot contain spaces")
         print("\nCorrect usage:")
         print("  - Query Class: unreal.<ClassName>")
         print("    Example: unreal.Actor, unreal.EditorLevelLibrary")
@@ -469,7 +469,7 @@ def query_api(query: str):
     if not query.startswith('unreal.'):
         # Check basic format validity
         if not query or query.startswith('.') or query.endswith('.') or '..' in query:
-            print("❌ Error: Query format incorrect")
+            print("[ERROR] Error: Query format incorrect")
             print("\nCorrect format:")
             print("  - unreal.<name>")
             print("  - unreal.<ClassName>.<member_name>")
@@ -483,7 +483,7 @@ def query_api(query: str):
 
     # Format validation
     if not query_without_prefix or query_without_prefix.endswith('.') or '..' in query_without_prefix:
-        print("❌ Error: Query format incorrect")
+        print("[ERROR] Error: Query format incorrect")
         print("\nCorrect format:")
         print("  - unreal.<name>")
         print("  - unreal.<ClassName>.<member_name>")
@@ -498,10 +498,10 @@ def query_api(query: str):
         class_name = parts[0]
         if hasattr(unreal, class_name):
             cls = getattr(unreal, class_name)
-            print(f"✅ Class {class_name} exists")
+            print(f"[OK] Class {class_name} exists")
             print(f"Doc: {cls.__doc__ or 'None'}")
         else:
-            print(f"❌ Class {class_name} does not exist")
+            print(f"[ERROR] Class {class_name} does not exist")
 
     elif len(parts) == 2:
         class_name, member_name = parts
@@ -509,12 +509,12 @@ def query_api(query: str):
             cls = getattr(unreal, class_name)
             if hasattr(cls, member_name):
                 member = getattr(cls, member_name)
-                print(f"✅ {class_name}.{member_name} exists")
+                print(f"[OK] {class_name}.{member_name} exists")
                 print(f"Doc: {member.__doc__ or 'None'}")
             else:
-                print(f"❌ {class_name}.{member_name} does not exist")
+                print(f"[ERROR] {class_name}.{member_name} does not exist")
         else:
-            print(f"❌ Class {class_name} does not exist")
+            print(f"[ERROR] Class {class_name} does not exist")
 
 def main():
     global unreal

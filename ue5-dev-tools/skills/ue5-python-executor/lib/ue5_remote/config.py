@@ -338,18 +338,18 @@ Examples:
         
         print("Python Plugin:")
         print(f"  Path: {result['python_plugin']['path']}")
-        print(f"  Enabled: {'✓' if result['python_plugin']['enabled'] else '✗'}")
-        print(f"  Modified: {'✓' if result['python_plugin']['modified'] else '✗'}")
+        print(f"  Enabled: {'[x]' if result['python_plugin']['enabled'] else '[ ]'}")
+        print(f"  Modified: {'[x]' if result['python_plugin']['modified'] else '[ ]'}")
         print(f"  Message: {result['python_plugin']['message']}\n")
         
         print("Remote Execution:")
         print(f"  Path: {result['remote_execution']['path']}")
-        print(f"  Enabled: {'✓' if result['remote_execution']['enabled'] else '✗'}")
-        print(f"  Modified: {'✓' if result['remote_execution']['modified'] else '✗'}")
+        print(f"  Enabled: {'[x]' if result['remote_execution']['enabled'] else '[ ]'}")
+        print(f"  Modified: {'[x]' if result['remote_execution']['modified'] else '[ ]'}")
         print(f"  Message: {result['remote_execution']['message']}\n")
         
         if result['restart_needed']:
-            print("⚠️  Configuration changed. Please restart UE5 Editor.\n")
+            print("[WARN] Configuration changed. Please restart UE5 Editor.\n")
             
         print(f"Summary: {result['summary']}")
         print(f"{'='*60}\n")

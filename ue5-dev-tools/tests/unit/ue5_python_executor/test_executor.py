@@ -140,8 +140,8 @@ class TestFindUnrealInstance:
 
     @patch.object(UE5RemoteExecution, '_create_multicast_socket')
     @patch.object(UE5RemoteExecution, '_send_message')
-    @patch.object(UE5RemoteExecution, '_receive_messages')
-    def test_find_instance_success(self, mock_receive, mock_send, mock_create_socket):
+    @patch.object(UE5RemoteExecution, '_receive_all_messages')
+    def test_find_instance_success(self, mock_receive_all, mock_send, mock_create_socket):
         """Test successful UE5 instance discovery."""
         mock_sock = MagicMock()
         mock_create_socket.return_value = mock_sock
@@ -154,7 +154,7 @@ class TestFindUnrealInstance:
                 "engine_version": "5.4.0"
             }
         }
-        mock_receive.return_value = pong_response
+        mock_receive_all.return_value = [pong_response]  # Returns list
 
         executor = UE5RemoteExecution()
         result = executor.find_unreal_instance()
@@ -172,12 +172,12 @@ class TestFindUnrealInstance:
 
     @patch.object(UE5RemoteExecution, '_create_multicast_socket')
     @patch.object(UE5RemoteExecution, '_send_message')
-    @patch.object(UE5RemoteExecution, '_receive_messages')
-    def test_find_instance_timeout(self, mock_receive, mock_send, mock_create_socket):
+    @patch.object(UE5RemoteExecution, '_receive_all_messages')
+    def test_find_instance_timeout(self, mock_receive_all, mock_send, mock_create_socket):
         """Test timeout when no UE5 instance responds."""
         mock_sock = MagicMock()
         mock_create_socket.return_value = mock_sock
-        mock_receive.return_value = None  # No response
+        mock_receive_all.return_value = []  # No response (empty list)
 
         executor = UE5RemoteExecution()
         result = executor.find_unreal_instance()

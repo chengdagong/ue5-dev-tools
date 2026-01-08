@@ -10,7 +10,8 @@ Python code in running UE5 instances.
 import json
 import logging
 import socket
-from typing import Optional, Tuple, Dict, Any
+import time
+from typing import Optional, Tuple, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +103,64 @@ class UE5RemoteExecution:
 
         return None
 
+    def _receive_all_messages(self, sock: socket.socket, message_type: str,
+                             timeout: float = 1.0) -> List[Dict]:
+        """
+        Collect ALL responses from multicast socket during timeout window.
+
+        Args:
+            sock: Socket to receive from
+            message_type: Message type to ignore (our own echo)
+            timeout: How long to wait for responses (default 1.0s)
+
+        Returns:
+            List of all discovered instance messages (filtered by project name if specified)
+        """
+        responses = []
+        sock.settimeout(0.1)  # Short timeout for each recv
+        start_time = time.time()
+
+        try:
+            while time.time() - start_time < timeout:
+                try:
+                    data, _ = sock.recvfrom(self.BUFFER_SIZE)
+                    json_data = json.loads(data.decode("utf-8"))
+
+                    if json_data.get("type") == message_type:
+                        continue  # Skip echo
+
+                    # Check project name if specified
+                    if self.project_name and "data" in json_data:
+                        if json_data["data"].get("project_name") != self.project_name:
+                            continue
+
+                    # Avoid duplicates by checking node_id
+                    if not any(r.get("source") == json_data.get("source") for r in responses):
+                        responses.append(json_data)
+
+                except socket.timeout:
+                    continue
+                except json.JSONDecodeError:
+                    continue
+                except Exception as e:
+                    logger.debug(f"Error parsing message: {e}")
+                    continue
+        except Exception as e:
+            logger.error(f"Error receiving messages: {e}")
+
+        return responses
+
     def find_unreal_instance(self) -> bool:
-        """Find and connect to running UE5 instance."""
+        """Find and connect to running UE5 instance with comprehensive discovery and logging."""
         try:
             self.mcast_sock = self._create_multicast_socket()
 
-            # Send ping message
+            # 1. Start discovery
+            logger.info("Searching for UE5 instances...")
+            if self.project_name:
+                logger.info(f"Filter: project_name='{self.project_name}'")
+
+            # 2. Send ping message
             ping_msg = {
                 "version": self.PROTOCOL_VERSION,
                 "magic": self.MAGIC,
@@ -116,20 +169,34 @@ class UE5RemoteExecution:
             }
 
             self._send_message(self.mcast_sock, ping_msg)
-            logger.info(f"Searching for UE5 instance{'...' if not self.project_name else f' (project: {self.project_name})...'}...")
 
-            # Receive pong
-            pong = self._receive_messages(self.mcast_sock, "ping")
+            # 3. Collect all responses
+            all_pongs = self._receive_all_messages(self.mcast_sock, "ping", timeout=1.0)
 
-            if pong:
-                self.unreal_node_id = pong.get("source")
+            # 4. Log all discovered instances
+            if not all_pongs:
+                logger.error("No UE5 instances discovered on network")
+                logger.info("Ensure UE5 editor is running with Python plugin enabled")
+                return False
+
+            logger.info(f"Discovered {len(all_pongs)} UE5 instance(s):")
+            for i, pong in enumerate(all_pongs, 1):
                 project = pong.get("data", {}).get("project_name", "Unknown")
                 engine = pong.get("data", {}).get("engine_version", "Unknown")
-                logger.info(f"Found UE5: {project} ({engine})")
-                return True
-            else:
-                logger.error("No UE5 instance found")
-                return False
+                node_id = pong.get("source", "Unknown")
+                logger.info(f"  {i}. {project} (UE {engine}) [node: {node_id}]")
+
+            # 5. Select first instance (or use filtering logic from _receive_all_messages)
+            selected = all_pongs[0]
+            self.unreal_node_id = selected.get("source")
+            project = selected.get("data", {}).get("project_name", "Unknown")
+            engine = selected.get("data", {}).get("engine_version", "Unknown")
+
+            if len(all_pongs) > 1:
+                logger.warning(f"{len(all_pongs)} instances discovered, selected first match")
+
+            logger.info(f"Connecting to: {project} (UE {engine}) [node: {self.unreal_node_id}]")
+            return True
 
         except Exception as e:
             logger.error(f"Failed to find UE5: {e}")

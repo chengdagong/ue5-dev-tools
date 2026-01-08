@@ -26,13 +26,13 @@ Configure VSCode with debugging launch and task configurations:
 
 ```bash
 # Auto-detects project from CLAUDE_PROJECT_DIR
-python3 scripts/setup-vscode.py
+python scripts/setup-vscode.py
 
 # Or specify project path explicitly
-python3 scripts/setup-vscode.py --project /path/to/ue5/project
+python scripts/setup-vscode.py --project /path/to/ue5/project
 
 # Force overwrite existing configurations
-python3 scripts/setup-vscode.py --force
+python scripts/setup-vscode.py --force
 ```
 
 This automatically creates:
@@ -60,19 +60,19 @@ For new UE5 projects that need VSCode debugging:
 1. **Ensure ue5-python-executor is configured:**
    ```bash
    # From ue5-python-executor skill
-   python3 ../ue5-python-executor/scripts/check-config.py --auto-fix
+   python ../ue5-python-executor/scripts/check-config.py --auto-fix
    ```
 
 2. **Setup VSCode configurations:**
    ```bash
-   python3 scripts/setup-vscode.py
+   python scripts/setup-vscode.py
    ```
 
 3. **Install debugpy in UE5's Python:**
    - Open UE5 Editor
    - Execute via ue5-python-executor:
      ```bash
-     python3 ../ue5-python-executor/scripts/remote-execute.py \
+     python ../ue5-python-executor/scripts/remote-execute.py \
        --code "import subprocess; subprocess.run(['pip', 'install', 'debugpy'])"
      ```
 
@@ -99,7 +99,7 @@ For debugging already-running debugpy servers:
 
 1. **Manually start debugpy server** in UE5:
    ```bash
-   python3 ../ue5-python-executor/scripts/remote-execute.py \
+   python ../ue5-python-executor/scripts/remote-execute.py \
      --file scripts/start_debug_server.py
    ```
 
@@ -124,13 +124,13 @@ Generates VSCode debugging configurations for UE5 Python.
 
 ```bash
 # Setup current project (auto-detected)
-python3 scripts/setup-vscode.py
+python scripts/setup-vscode.py
 
 # Setup specific project
-python3 scripts/setup-vscode.py --project /path/to/ue5/project
+python scripts/setup-vscode.py --project /path/to/ue5/project
 
 # Force overwrite existing configurations
-python3 scripts/setup-vscode.py --force
+python scripts/setup-vscode.py --force
 ```
 
 **Environment variables:**
@@ -160,7 +160,7 @@ Python script executed in UE5 editor to start debugpy remote debugging server.
 **Execution:**
 ```bash
 # Via ue5-python-executor
-python3 ../ue5-python-executor/scripts/remote-execute.py \
+python ../ue5-python-executor/scripts/remote-execute.py \
   --file scripts/start_debug_server.py
 ```
 
@@ -215,7 +215,7 @@ Auto-injected by Claude Code, pointing to the current project root.
 **Example:**
 ```bash
 # When CLAUDE_PROJECT_DIR=/Users/me/MyUE5Game
-python3 scripts/setup-vscode.py
+python scripts/setup-vscode.py
 # Creates .vscode/ in /Users/me/MyUE5Game
 ```
 
@@ -267,11 +267,11 @@ Uses debugpy (Python's Debug Adapter Protocol implementation):
 **Solutions:**
 ```bash
 # Install debugpy in UE5
-python3 ../ue5-python-executor/scripts/remote-execute.py \
+python ../ue5-python-executor/scripts/remote-execute.py \
   --code "import subprocess; subprocess.run(['pip', 'install', 'debugpy'])"
 
 # Verify debugpy server starts
-python3 ../ue5-python-executor/scripts/remote-execute.py \
+python ../ue5-python-executor/scripts/remote-execute.py \
   --file scripts/start_debug_server.py
 
 # Check port availability
@@ -303,10 +303,10 @@ lsof -i :19678
 ls ../ue5-python-executor/scripts/remote-execute.py
 
 # Check UE5 configuration
-python3 ../ue5-python-executor/scripts/check-config.py --check-only
+python ../ue5-python-executor/scripts/check-config.py --check-only
 
 # Test remote execution
-python3 ../ue5-python-executor/scripts/remote-execute.py \
+python ../ue5-python-executor/scripts/remote-execute.py \
   --code "print('test')"
 ```
 
@@ -318,7 +318,7 @@ Develop complex UE5 Python scripts with full debugging:
 
 ```bash
 # Setup VSCode once
-python3 scripts/setup-vscode.py
+python scripts/setup-vscode.py
 
 # Then develop iteratively:
 # 1. Edit Python file
@@ -377,7 +377,7 @@ Extend tasks.json for project-specific workflows:
 {
   "label": "ue5-run-tests",
   "type": "shell",
-  "command": "python3",
+  "command": "python",
   "args": [
     "${env:CLAUDE_PLUGIN_ROOT}/skills/ue5-python-executor/scripts/remote-execute.py",
     "--file",

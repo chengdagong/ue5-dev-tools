@@ -170,7 +170,13 @@ Environment Variables:
     project_name = args.project_name if args.project_name else get_default_project_name()
 
     if not args.project_path and not project_name:
-        parser.error("Either --project-path or --project-name must be specified (or CLAUDE_PROJECT_DIR must be set)")
+        parser.error(
+            "Could not determine project name.\n"
+            "Please specify either:\n"
+            "  --project-name <name>   (to filter by project)\n"
+            "  --project-path <path>   (to enable auto-launch)\n"
+            "Or run from a directory containing a .uproject file"
+        )
 
     # Prepare command
     if args.code:

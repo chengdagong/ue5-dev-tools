@@ -7,6 +7,7 @@ Consolidated from multiple sources for shared use across skills.
 """
 
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -37,17 +38,50 @@ def get_project_root() -> Path:
     return Path.cwd()
 
 
-def get_default_project_name() -> Optional[str]:
+def infer_project_name_from_filesystem() -> Optional[str]:
     """
-    Get project name from CLAUDE_PROJECT_DIR basename.
+    Infer project name by searching for .uproject file.
+
+    Search order:
+    1. Current working directory
+    2. Parent directories (up to 3 levels)
 
     Returns:
-        Project name as string, or None if CLAUDE_PROJECT_DIR not set
+        Project name (without .uproject extension) or None if not found or ambiguous
     """
+    cwd = Path.cwd()
+
+    # Search in cwd and up to 3 parent levels
+    for parent in [cwd] + list(cwd.parents[:3]):
+        uprojects = list(parent.glob("*.uproject"))
+        if len(uprojects) == 1:
+            return uprojects[0].stem
+        elif len(uprojects) > 1:
+            # Multiple .uproject files, ambiguous
+            return None
+
+    return None
+
+
+def get_default_project_name() -> Optional[str]:
+    """
+    Get project name from CLAUDE_PROJECT_DIR or filesystem.
+
+    Priority:
+    1. CLAUDE_PROJECT_DIR basename (if available in hooks)
+    2. .uproject file in current directory tree
+    3. None (require explicit --project-name)
+
+    Returns:
+        Project name as string, or None if could not determine
+    """
+    # Try CLAUDE_PROJECT_DIR first (available in hooks)
     if "CLAUDE_PROJECT_DIR" in os.environ:
         project_dir = os.environ["CLAUDE_PROJECT_DIR"]
         return os.path.basename(project_dir.rstrip("/"))
-    return None
+
+    # Fall back to filesystem inference
+    return infer_project_name_from_filesystem()
 
 
 def get_default_project_path() -> Path:

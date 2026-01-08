@@ -60,3 +60,58 @@ for data in asset_data_list:
     # Only load the asset when modification is strictly necessary
     # asset = data.get_asset()
 ```
+
+---
+
+### 4. Cross-Platform Output
+
+For scripts that will run on different platforms (Windows, macOS, Linux), ensure console output is compatible:
+
+#### Use ASCII-only output
+
+```python
+# Good - works everywhere
+unreal.log("[OK] Operation succeeded")
+unreal.log("[ERROR] Operation failed")
+unreal.log("=" * 80)
+
+# Bad - may show garbled on Windows console
+unreal.log("✅ 操作成功")  # Unicode + Chinese
+unreal.log("❌ 操作失败")  # Unicode emoji
+```
+
+**Why:** Windows console may not handle UTF-8 or Unicode characters correctly. ASCII-only output ensures compatibility across all platforms.
+
+#### If Chinese output is needed
+
+Write to file with UTF-8 encoding instead:
+
+```python
+# Write to file with UTF-8 encoding
+log_file = "/tmp/operation_log.txt"
+with open(log_file, "w", encoding="utf-8") as f:
+    f.write("操作成功\n")
+    f.write("所有资源已处理\n")
+
+# Then log the file path
+unreal.log(f"[OK] Detailed log written to {log_file}")
+
+# Or use ASCII representations
+unreal.log("[OK] Cao Zuo Cheng Gong (操作成功)")
+```
+
+#### Status indicators - use ASCII
+
+```python
+# Good
+unreal.log("[OK] Task completed")
+unreal.log("[ERROR] Task failed")
+unreal.log("[WARN] Check this")
+unreal.log("[INFO] Progress...")
+
+# Bad
+unreal.log("✅ Task completed")
+unreal.log("❌ Task failed")
+unreal.log("⚠️ Check this")
+unreal.log("ℹ️ Progress...")
+```

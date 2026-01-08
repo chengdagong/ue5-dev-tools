@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(SKIP_HOOK=1 git commit --no-verify -m \"$\\(cat <<''EOF''\nrefactor: replace bash install script with cross-platform Python version\n\nReplace install-hooks.sh with install_hooks.py to support Windows, macOS, and Linux. The Python script provides identical functionality with improved cross-platform compatibility including ANSI color support on Windows 10+, smart symlink/copy fallback, and comprehensive error handling.\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(python scripts/install_hooks.py:*)",
+      "Bash(git push:*)",
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(tree:*)",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" log --oneline -10)",
+      "Bash(python -m pytest tests/unit tests/integration -v --tb=short)",
+      "Bash(python:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(git commit:*)",
+      "Bash(rm:*)",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" status)",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" diff --stat)",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" log -3 --oneline)",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" add \"ue5-dev-tools/tests/\")",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" diff \"ue5-dev-tools/scripts/examples/add_gameplaytag_to_asset.py\" \"ue5-dev-tools/scripts/install_hooks.py\")",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" add \"ue5-dev-tools/scripts/examples/add_gameplaytag_to_asset.py\" \"ue5-dev-tools/scripts/install_hooks.py\")",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" commit -m \"$\\(cat <<''EOF''\nfeat: add comprehensive test system for ue5-dev-tools\n\n- Add unit, integration, and E2E test structure with pytest\n- Create E2E tests for ue5-python-executor \\(discovery, execution, \n  error handling, multi-instance, auto-launch\\)\n- Add shared fixtures in conftest.py with auto-launch UE5 capability\n- Migrate api-validator tests to centralized test structure\n- Fix Unicode encoding issues \\(replace emoji with ASCII text\\)\n- Add sample test scripts and fixtures\n\nTest with: pytest tests/e2e -v --run-e2e\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"D:\\\\code\\\\ue5-dev-tools\" push)",
+      "Bash(set CLAUDE_PROJECT_DIR=D:/Code/ue5-dev-tools/ue5-dev-tools/tests/fixtures/E2ETestProject:*)",
+      "Bash(find:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

@@ -131,6 +131,12 @@ Environment Variables:
         help="Wait time in seconds before execution (useful for detached mode)"
     )
 
+    parser.add_argument(
+        "--no-launch",
+        action="store_true",
+        help="Do not attempt to auto-launch UE5 editor if not found"
+    )
+
     args = parser.parse_args()
 
     # Handle detached mode
@@ -189,7 +195,93 @@ Environment Variables:
 
     # Find and connect to UE5
     if not executor.find_unreal_instance():
-        sys.exit(1)
+        if args.no_launch:
+            logger.error("No UE5 instance found and auto-launch disabled.")
+            sys.exit(1)
+        
+        logger.info("No running UE5 instance found. Preparing to auto-launch...")
+
+        # Determine project info for launch AND config check
+        launch_project_path = args.project_path
+        project_root = None
+
+        if launch_project_path:
+            # If user provided .uproject path
+            if launch_project_path.is_file():
+                project_root = launch_project_path.parent
+            else:
+                 # Assume directory provided? Not standard usage based on help, but let's be safe
+                 if launch_project_path.is_dir():
+                     project_root = launch_project_path
+                     # Find uproject in it
+                     candidates = list(project_root.glob("*.uproject"))
+                     if candidates:
+                         launch_project_path = candidates[0]
+        elif project_name:
+             # Try to guess project path based on CLAUDE_PROJECT_DIR if available
+             from ue5_remote.utils import get_project_root
+             project_root = get_project_root()
+             # Look for .uproject in root
+             candidates = list(project_root.glob("*.uproject"))
+             if candidates:
+                 launch_project_path = candidates[0]
+        
+        if not launch_project_path or not project_root:
+             logger.error("Cannot auto-launch: Project path/root not specified and could not be inferred.")
+             sys.exit(1)
+
+        # Check and Fix Configuration
+        logger.info(f"Checking project configuration in: {project_root}")
+        from ue5_remote.config import run_config_check
+        
+        config_result = run_config_check(project_root, auto_fix=True)
+        
+        if config_result["status"] == "error":
+            logger.error(f"Configuration check failed: {config_result['summary']}")
+            sys.exit(1)
+        
+        if config_result["python_plugin"]["modified"]:
+            logger.info(f"Fixed Python Plugin: {config_result['python_plugin']['message']}")
+        
+        if config_result["remote_execution"]["modified"]:
+            logger.info(f"Fixed Remote Execution: {config_result['remote_execution']['message']}")
+            
+        if config_result["status"] == "fixed":
+             logger.info("Configuration fixed. Proceeding to launch Editor...")
+        elif config_result["status"] == "ok":
+             logger.info("Configuration is correct.")
+
+        # Find Editor
+        from ue5_remote.utils import find_ue5_editor
+        editor_path = find_ue5_editor()
+        
+        if not editor_path:
+            logger.error("Could not find Unreal Editor executable. Please launch it manually.")
+            sys.exit(1)
+             
+        logger.info(f"Launching UE5 Editor: {editor_path}")
+        logger.info(f"Project: {launch_project_path}")
+        
+        # Launch Editor
+        subprocess.Popen(
+            [str(editor_path), str(launch_project_path)],
+             start_new_session=True
+        )
+        
+        # Wait for editor to start (poll for instance)
+        max_attempts = 60 # 60 * 2s = 120s timeout
+        logger.info("Waiting for UE5 to start and enable remote execution (timeout: 120s)...")
+        
+        found = False
+        for i in range(max_attempts):
+            if executor.find_unreal_instance():
+                found = True
+                break
+            time.sleep(2.0)
+            
+        if not found:
+            logger.error("Timeout waiting for Editor to start and enable remote execution.")
+            sys.exit(1)
 
     if not executor.open_connection():
         sys.exit(1)

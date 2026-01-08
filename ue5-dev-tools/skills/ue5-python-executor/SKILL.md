@@ -1,11 +1,11 @@
 ---
 name: ue5-python-executor
-description: Execute Python scripts in running UE5 editor instances using remote execution protocol. Use when users need to (1) run UE5.x python scripts (2) enable UE5 Python plugin and remote execution, (3) execute Python scripts in running UE5 editor, (4) verify UE5 project Python configuration
+description: Execute Python scripts in running UE5 editor instances using remote execution protocol. Use when users need to (1) run UE5.x python scripts (2) enable UE5 Python plugin and remote execution, (3) execute Python scripts in running UE5 editor with auto-launch capability, (4) verify UE5 project Python configuration
 ---
 
 # UE5 Python Executor
 
-Execute Python scripts and code in running Unreal Engine 5 editor instances via socket-based remote execution protocol.
+Execute Python scripts and code in running Unreal Engine 5 editor instances via socket-based remote execution protocol. Supports automatic editor launching and configuration fixing.
 
 ## Quick Start
 
@@ -22,16 +22,17 @@ python3 scripts/check-config.py --project /path/to/ue5/project --auto-fix
 ```
 
 This automatically:
+
 - Enables `PythonScriptPlugin` in `.uproject`
 - Configures `bRemoteExecution=True` in `DefaultEngine.ini`
 - Sets `bDeveloperMode=True` for development
 - Configures multicast bind address
 
-**Note:** Restart UE5 Editor after running this command.
+**Note:** `remote-execute.py` will also perform these checks and fixes automatically if it needs to launch the editor.
 
 ### Execute Python Scripts
 
-Run Python scripts in a running UE5 instance:
+Run Python scripts in a running UE5 instance (or auto-launch one):
 
 ```bash
 # Auto-detects project name from CLAUDE_PROJECT_DIR
@@ -40,7 +41,7 @@ python3 scripts/remote-execute.py --file script.py
 # Execute by project name
 python3 scripts/remote-execute.py --file script.py --project-name MyProject
 
-# Execute by project path
+# Execute by project path (Recommended for auto-launch)
 python3 scripts/remote-execute.py --file script.py --project-path /path/to/project.uproject
 
 # Execute inline code
@@ -49,22 +50,22 @@ python3 scripts/remote-execute.py --code "import unreal; print('Hello UE5')"
 
 ## Core Workflows
 
-### Workflow 1: First-Time Project Setup
+### Workflow 1: Zero-Config Execution
 
-For new UE5 projects that need Python remote execution:
+For new or unconfigured projects:
 
-1. **Check and fix project configuration:**
+1. **Run execution command directly:**
+
    ```bash
-   # Auto-detects project from CLAUDE_PROJECT_DIR
-   python3 scripts/check-config.py --auto-fix
+   python3 scripts/remote-execute.py --code "print('Hello')" --project-path /path/to/project.uproject
    ```
 
-2. **Restart UE5 Editor** to apply configuration changes
-
-3. **Test the setup:**
-   ```bash
-   python3 scripts/remote-execute.py --code "import unreal; print('Hello from UE5')"
-   ```
+2. **The script will automatically:**
+   - Detect that UE5 is not running.
+   - Check and fix project configuration (enable plugin, set INI vars).
+   - Launch `UnrealEditor.exe` with the project.
+   - Wait for the editor to initialize.
+   - Connect and execute the code.
 
 ### Workflow 2: Executing Scripts Without Debugging
 
@@ -105,13 +106,14 @@ python3 scripts/check-config.py --json
 python3 scripts/check-config.py --project /path/to/ue5/project --check-only
 ```
 
-## Bundled Scripts
+## Bundled Tools
 
 ### check-config.py
 
 Validates and optionally fixes UE5 Python configuration.
 
 **Key features:**
+
 - Auto-detects project from `CLAUDE_PROJECT_DIR`
 - Checks `.uproject` for `PythonScriptPlugin` enabled
 - Verifies `DefaultEngine.ini` remote execution settings
@@ -121,7 +123,7 @@ Validates and optionally fixes UE5 Python configuration.
 **Usage examples:**
 
 ```bash
-# Check current project (auto-detected)
+# Check current project (auto-detects project)
 python3 scripts/check-config.py --check-only
 
 # Auto-fix current project
@@ -129,62 +131,60 @@ python3 scripts/check-config.py --auto-fix
 
 # Check specific project
 python3 scripts/check-config.py --project /path/to/project --check-only
-
-# Get machine-readable output
-python3 scripts/check-config.py --json
 ```
 
 **Environment variables:**
+
 - `CLAUDE_PROJECT_DIR` - Project root (auto-injected by Claude Code)
 
 **Exit codes:**
+
 - `0` - Configuration correct
 - `1` - Error (e.g., no .uproject found)
 - `2` - Configuration needs fixing
 
 ### remote-execute.py
 
-Executes Python code or files in running UE5 instances using socket-based remote execution.
+Executes Python code or files in running UE5 instances using socket-based remote execution. Auto-launches editor if needed.
 
 **Key features:**
+
+- **Auto-Launch:** Locates and starts UE5 Editor if not running
+- **Auto-Config:** Fixes project settings before auto-launch
 - Auto-detects project name from `CLAUDE_PROJECT_DIR`
 - Multicast discovery of UE5 instances
 - Project name or path filtering
 - Supports both code strings and file execution
 - Detached mode for fire-and-forget execution
-- Configurable timeout and wait delays
 
 **Parameters:**
+
 - `--code` - Python code string to execute
 - `--file` - Python file to execute
 - `--project-name` - Filter by project name (default: auto-detect from `CLAUDE_PROJECT_DIR`)
-- `--project-path` - Filter by .uproject path
+- `--project-path` - Filter by .uproject path (Required for reliable auto-launch)
 - `--multicast-group` - Custom multicast address (default: 239.0.0.1:6766)
 - `--timeout` - Command execution timeout (default: 5.0s)
 - `--detached` - Run in background and exit immediately
 - `--wait` - Delay before execution (useful with detached mode)
+- `--no-launch` - Disable auto-launch behavior
 - `-v, --verbose` - Enable debug logging
 
 **Usage examples:**
 
 ```bash
-# Execute file (auto-detects project)
-python3 scripts/remote-execute.py --file script.py
+# Execute file (auto-detects project, auto-launches if needed)
+python3 scripts/remote-execute.py --file script.py --project-path /full/path/to/Project.uproject
 
-# Execute with explicit project name
+# Execute with explicit project name (requires running instance)
 python3 scripts/remote-execute.py --file script.py --project-name MyProject
 
-# Execute inline code
-python3 scripts/remote-execute.py --code "import unreal; print(unreal.EditorLevelLibrary.get_editor_world())"
-
-# Detached execution
-python3 scripts/remote-execute.py --file long_running.py --detached
-
-# With delay (useful for timing)
-python3 scripts/remote-execute.py --file script.py --wait 2.0 --detached
+# Explicitly prevent auto-launch
+python3 scripts/remote-execute.py --file script.py --no-launch
 ```
 
 **Environment variables:**
+
 - `CLAUDE_PROJECT_DIR` - Project root, used to infer project name (auto-injected by Claude Code)
 
 ## Environment Variables
@@ -196,10 +196,12 @@ This skill uses Claude Code's auto-injected environment variables for seamless i
 Auto-injected by Claude Code, pointing to the current project root.
 
 **Used by:**
-- `check-config.py` - Auto-detects UE5 project location
-- `remote-execute.py` - Infers project name from directory basename
+
+- `ue5_remote.config` - Auto-detects UE5 project location
+- `remote-execute.py` - Infers project name/path from directory
 
 **Example:**
+
 ```bash
 # When CLAUDE_PROJECT_DIR=/Users/me/MyUE5Game
 # These commands work without --project argument:
@@ -214,9 +216,10 @@ When environment variables are not set (e.g., running scripts directly outside C
 1. **CLAUDE_PROJECT_DIR fallback:** Current working directory (`cwd`)
 
 **Manual usage example:**
+
 ```bash
 cd /path/to/ue5/project
-python3 /path/to/plugin/skills/ue5-python-executor/scripts/check-config.py --auto-fix
+python3 /path/to/plugin/skills/ue5-python-executor/scripts/remote-execute.py --file script.py
 ```
 
 ## Technical Details
@@ -230,31 +233,17 @@ The skill uses UE5's socket-based Python remote execution protocol:
 3. **Execution:** JSON messages with commands
 4. **Response:** JSON messages with results
 
-**Message format:**
-```json
-{
-  "version": 1,
-  "magic": "ue_py",
-  "source": "python_executor",
-  "dest": "node_id",
-  "type": "command",
-  "data": {
-    "command": "script.py or code",
-    "exec_mode": "ExecuteFile|ExecuteStatement|EvaluateStatement",
-    "unattended": true
-  }
-}
-```
-
 ### Project Requirements
 
-**UE5 Configuration:**
+**UE5 Configuration (Auto-handled by tools):**
+
 - `PythonScriptPlugin` enabled in `.uproject`
 - `bRemoteExecution=True` in `DefaultEngine.ini`
 - `bDeveloperMode=True` in `DefaultEngine.ini`
 - `RemoteExecutionMulticastBindAddress=0.0.0.0` in `DefaultEngine.ini`
 
 **Python Requirements:**
+
 - Python 3.x
 
 ## Troubleshooting
@@ -262,18 +251,17 @@ The skill uses UE5's socket-based Python remote execution protocol:
 ### "No UE5 instance found"
 
 **Causes:**
-- UE5 Editor not running
-- Remote execution not enabled
+
+- UE5 Editor not running and auto-launch disabled/failed
+- Remote execution not enabled (and auto-fix failed)
 - Firewall blocking multicast
 - Wrong project name/path filter
 
 **Solutions:**
+
 ```bash
 # Verify configuration
 python3 scripts/check-config.py --project /path/to/project
-
-# Try without project filter
-python3 scripts/remote-execute.py --code "print('test')" --project-name ""
 
 # Check firewall allows UDP on port 6766
 ```
@@ -281,11 +269,13 @@ python3 scripts/remote-execute.py --code "print('test')" --project-name ""
 ### Script execution timeout
 
 **Causes:**
+
 - Script takes longer than timeout
 - UE5 frozen or busy
 - Network issues
 
 **Solutions:**
+
 ```bash
 # Increase timeout
 python3 scripts/remote-execute.py --file script.py --project-name MyProject --timeout 30.0
@@ -293,77 +283,3 @@ python3 scripts/remote-execute.py --file script.py --project-name MyProject --ti
 # Use detached mode for long scripts
 python3 scripts/remote-execute.py --file script.py --project-name MyProject --detached
 ```
-
-## Common Use Cases
-
-### Case 1: Asset Batch Processing
-
-Process multiple assets without debugging overhead:
-
-```bash
-python3 scripts/remote-execute.py \
-  --file batch_process_assets.py \
-  --project-name MyGame \
-  --timeout 60.0
-```
-
-### Case 2: Editor Automation
-
-Automate editor workflows:
-
-```bash
-python3 scripts/remote-execute.py \
-  --file automation/generate_thumbnails.py \
-  --project-name MyGame \
-  --detached
-```
-
-### Case 3: Development Workflow Integration
-
-Integrate into build/test scripts:
-
-```bash
-#!/bin/bash
-
-# Ensure UE5 is configured
-python3 scripts/check-config.py --project ./MyProject --auto-fix
-
-# Run validation scripts
-python3 scripts/remote-execute.py \
-  --file tests/validate_assets.py \
-  --project-name MyProject \
-  --timeout 60.0
-```
-
-## Integration with Other Tools
-
-### CI/CD Integration
-
-```yaml
-# .github/workflows/ue5-validation.yml
-- name: Validate UE5 Assets
-  env:
-    CLAUDE_PROJECT_DIR: ${{ github.workspace }}
-  run: |
-    # Scripts auto-detect project from CLAUDE_PROJECT_DIR
-    python3 skills/ue5-python-executor/scripts/check-config.py --json
-    python3 skills/ue5-python-executor/scripts/remote-execute.py \
-      --file validation/check_assets.py \
-      --timeout 120
-```
-
-## Best Practices
-
-1. **Always verify configuration** before first use: `check-config.py --check-only`
-
-2. **Use project name filtering** when multiple UE5 instances are running
-
-3. **Set appropriate timeouts** for long-running scripts
-
-4. **Use detached mode** for background tasks that don't need immediate results
-
-5. **Restart UE5 Editor** after configuration changes
-
-## Related Skills
-
-- **ue5-vscode-debugger**: Setup VSCode for F5 Python debugging in UE5 (requires this skill)

@@ -58,3 +58,37 @@ def get_default_project_path() -> Path:
         Path to project root directory
     """
     return get_project_root()
+
+
+def find_ue5_editor() -> Optional[Path]:
+    """
+    Find the latest installed UE5 Editor executable.
+    
+    Returns:
+        Path to UnrealEditor.exe or None if not found
+    """
+    # Check common installation paths
+    program_files = os.environ.get("ProgramFiles", "C:\\Program Files")
+    search_roots = [
+        Path(program_files) / "Epic Games",
+        Path("D:\\Epic Games"), 
+        Path("E:\\Epic Games"),
+        Path("C:\\Epic Games")
+    ]
+    
+    found_editors = []
+    
+    for base_path in search_roots:
+        if not base_path.exists():
+            continue
+            
+        for item in base_path.iterdir():
+            if item.is_dir() and item.name.startswith("UE_5"):
+                editor_path = item / "Engine" / "Binaries" / "Win64" / "UnrealEditor.exe"
+                if editor_path.exists():
+                    found_editors.append(editor_path)
+
+    # Sort to find the latest version (assuming lexicographical sort works for UE_5.x)
+    found_editors.sort(key=lambda p: p.parts[-5], reverse=True) # parts[-5] is the UE_5.x folder
+
+    return found_editors[0] if found_editors else None

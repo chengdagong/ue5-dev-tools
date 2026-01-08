@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-将 Unreal Python 存根文件转换为可导入的 Mock 模块
+Convert Unreal Python stub files to importable Mock modules
 
-功能：
-1. 解析存根文件的类、方法、属性定义
-2. 为每个方法生成返回 mock 值的实现
-3. 为 @property 生成实际的 getter/setter
-4. 在基类中实现 get_editor_property/set_editor_property
-5. 检测 deprecated 标记并生成抛出异常的实现
+Features:
+1. Parse class, method, and property definitions from stub files
+2. Generate implementations for each method that return mock values
+3. Generate actual getter/setter for @property
+4. Implement get_editor_property/set_editor_property in base classes
+5. Detect deprecated markers and generate exception-throwing implementations
 """
 
 import re
@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PropertyInfo:
-    """属性信息"""
+    """Property information"""
     name: str
     type_hint: str
     docstring: str
@@ -28,9 +28,9 @@ class PropertyInfo:
 
 @dataclass
 class MethodInfo:
-    """方法信息"""
+    """Method information"""
     name: str
-    signature: str  # 完整签名行
+    signature: str  # Full signature line
     return_type: str
     docstring: str
     is_classmethod: bool = False
@@ -42,93 +42,93 @@ class MethodInfo:
 
 @dataclass
 class ClassInfo:
-    """类信息"""
+    """Class information"""
     name: str
-    bases: str  # 父类字符串
+    bases: str  # Base class string
     docstring: str
     init_signature: str = ""
     init_params: List[Tuple[str, str, str]] = field(default_factory=list)  # (name, type, default)
     methods: List[MethodInfo] = field(default_factory=list)
     properties: List[PropertyInfo] = field(default_factory=list)
-    enum_values: List[Tuple[str, str]] = field(default_factory=list)  # (name, value) 枚举值
+    enum_values: List[Tuple[str, str]] = field(default_factory=list)  # (name, value) enum values
     is_deprecated: bool = False
     deprecated_msg: str = ""
 
 
 def escape_docstring(text: str) -> str:
-    """转义 docstring 中的特殊字符"""
+    """Escape special characters in docstrings"""
     if not text:
         return text
-    # 将嵌入的双引号替换为单引号，避免与三引号冲突
+    # Replace embedded double quotes with single quotes to avoid conflicts with triple quotes
     text = text.replace('\\"', "'")
     text = text.replace('"', "'")
     return text
 
 
 def escape_string(text: str) -> str:
-    """转义字符串字面量中的特殊字符"""
+    """Escape special characters in string literals"""
     if not text:
         return text
-    # 转义双引号和反斜杠
+    # Escape double quotes and backslashes
     text = text.replace('\\', '\\\\')
     text = text.replace('"', '\\"')
     return text
 
 
 def sanitize_default_value(default: str) -> str:
-    """将复杂默认值（如枚举引用）转换为安全的 None"""
+    """Convert complex default values (e.g., enum references) to safe None"""
     if not default:
         return "None"
-    
-    # 保留简单的基本类型默认值
+
+    # Keep simple basic type default values
     safe_patterns = [
-        # 数字
+        # Numbers
         lambda s: s.replace('.', '', 1).replace('-', '', 1).isdigit(),
-        # 字符串
+        # Strings
         lambda s: s.startswith('"') or s.startswith("'"),
-        # 布尔值
+        # Booleans
         lambda s: s in ('True', 'False'),
         # None
         lambda s: s == 'None',
-        # 空集合
+        # Empty collections
         lambda s: s in ('[]', '{}', '()', 'set()'),
-        # 列表/元组/字典字面量（简单情况）
+        # List/tuple/dict literals (simple cases)
         lambda s: s.startswith('[') and s.endswith(']'),
         lambda s: s.startswith('(') and s.endswith(')'),
         lambda s: s.startswith('{') and s.endswith('}'),
     ]
-    
+
     for pattern in safe_patterns:
         try:
             if pattern(default):
                 return default
         except:
             pass
-    
-    # 包含 . 的需要引用其他类型，不安全
+
+    # Values containing . need to reference other types, not safe
     if '.' in default:
         return "None"
-    
-    # 其他情况如 Name("xxx") 需要判断
+
+    # Other cases like Name("xxx") need to be checked
     if '(' in default:
         return "None"
-    
+
     return default
 
 
 def get_mock_return_value(return_type: str) -> str:
-    """根据返回类型生成 mock 返回值"""
+    """Generate mock return value based on return type"""
     if not return_type or return_type == "None":
         return "None"
-    
-    # 清理类型注解
+
+    # Clean type annotation
     return_type = return_type.strip()
-    
-    # 处理 Optional 类型
+
+    # Handle Optional types
     if return_type.startswith("Optional["):
         return "None"
-    
-    # 基本类型
+
+    # Basic types
     type_map = {
         "bool": "False",
         "int": "0",
@@ -148,65 +148,65 @@ def get_mock_return_value(return_type: str) -> str:
         "Iterator": "iter([])",
         "Iterable": "[]",
     }
-    
-    # 直接匹配
+
+    # Direct match
     if return_type in type_map:
         return type_map[return_type]
-    
-    # 处理泛型类型
+
+    # Handle generic types
     for key in type_map:
         if return_type.startswith(f"{key}["):
             return type_map[key]
-    
-    # Unreal 特定类型
+
+    # Unreal-specific types
     if return_type in ("Name", "Text"):
         return f'{return_type}("")' if return_type != "Name" else 'Name("None")'
-    
-    # Array 类型
+
+    # Array types
     if return_type.startswith("Array["):
         return "Array(object)"
-    
-    # 其他类型返回 None
+
+    # Other types return None
     return "None"
 
 
 def check_deprecated(docstring: str) -> Tuple[bool, str]:
-    """检查 docstring 中是否有 deprecated 标记"""
+    """Check if there is a deprecated marker in the docstring"""
     if not docstring:
         return False, ""
-    
-    # 查找 deprecated 相关文本
+
+    # Find deprecated-related text
     lines = docstring.split('\n')
     deprecated_lines = []
     in_deprecated = False
-    
+
     for line in lines:
         line_lower = line.lower()
         if 'deprecated' in line_lower:
             in_deprecated = True
             deprecated_lines.append(line.strip())
         elif in_deprecated and line.strip() and not line.strip().startswith('-'):
-            # 继续收集 deprecated 说明
+            # Continue collecting deprecated description
             deprecated_lines.append(line.strip())
         elif in_deprecated and (not line.strip() or line.strip().startswith('-')):
             in_deprecated = False
-    
+
     if deprecated_lines:
         return True, ' '.join(deprecated_lines)
     return False, ""
 
 
 def parse_params(sig_line: str) -> List[Tuple[str, str, str]]:
-    """解析方法的参数"""
-    # 提取参数部分: def func_name(...) -> ...
+    """Parse method parameters"""
+    # Extract parameter section: def func_name(...) -> ...
     match = re.search(r'def\s+\w+\s*\(([^)]*)\)', sig_line)
     if not match:
         return []
-    
+
     params_str = match.group(1)
     params = []
-    
-    # 简单分割参数（忽略嵌套的括号）
+
+    # Simple parameter splitting (ignore nested parentheses)
     depth = 0
     current = ""
     for char in params_str:
@@ -223,17 +223,17 @@ def parse_params(sig_line: str) -> List[Tuple[str, str, str]]:
             current += char
     if current.strip():
         params.append(current.strip())
-    
+
     result = []
     for param in params:
         if param == 'self' or param.startswith('*'):
-            # 如果是 *args, **kwargs 我们暂时忽略，或者可以特殊处理
-            # 但通常我们想保留它们
+            # For *args, **kwargs we skip or can handle specially
+            # but normally we want to preserve them
             if param.startswith('*'):
-                 result.append((param, "Any", None))
+                result.append((param, "Any", None))
             continue
-        
-        # 解析 name: type = default
+
+        # Parse name: type = default
         match = re.match(r'(\w+)\s*:\s*([^=]+)(?:\s*=\s*(.+))?', param)
         if match:
             name = match.group(1)
@@ -241,14 +241,14 @@ def parse_params(sig_line: str) -> List[Tuple[str, str, str]]:
             default = match.group(3).strip() if match.group(3) else None
             result.append((name, type_hint, default))
         else:
-            # 只有名字
+            # Only name
             result.append((param, "Any", None))
-    
+
     return result
 
 
 def parse_method_signature(sig_line: str) -> Tuple[str, str, List[Tuple[str, str, str]]]:
-    """解析方法签名，返回 (方法名, 返回类型, 参数列表)"""
+    """Parse method signature, return (method_name, return_type, parameter_list)"""
     # 匹配 def method_name(...) -> ReturnType:
     match = re.match(r'\s*def\s+(\w+)\s*\([^)]*\)\s*(?:->\s*([^:]+))?\s*:', sig_line)
     name = ""
@@ -264,13 +264,13 @@ def parse_method_signature(sig_line: str) -> Tuple[str, str, List[Tuple[str, str
 
 
 def parse_stub_file(file_path: str) -> List[ClassInfo]:
-    """解析存根文件，提取所有类信息"""
+    """Parse stub file and extract all class information"""
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
     classes = []
     
-    # 匹配类定义
+    # Match class definitions
     class_pattern = re.compile(
         r'^class\s+(\w+)\s*(\([^)]*\))?\s*:\s*\n(.*?)(?=^class\s|\Z)',
         re.MULTILINE | re.DOTALL
@@ -280,12 +280,12 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
         class_name = match.group(1)
         bases = match.group(2) or "()"
         class_body = match.group(3)
-        
-        # 提取类 docstring
+
+        # Extract class docstring
         docstring_match = re.match(r'\s*r?"""(.*?)"""\s*', class_body, re.DOTALL)
         docstring = docstring_match.group(1) if docstring_match else ""
-        
-        # 检查类是否 deprecated
+
+        # Check if class is deprecated
         is_deprecated, deprecated_msg = check_deprecated(docstring)
         
         class_info = ClassInfo(
@@ -296,30 +296,30 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
             deprecated_msg=deprecated_msg
         )
         
-        # 解析方法
+        # Parse methods
         method_pattern = re.compile(
-            r'((?:^    @(?:classmethod|staticmethod)\s*\n)?)'  # 装饰器
-            r'^    def\s+(\w+)\s*\([^)]*\)(?:\s*->\s*[^:]+)?\s*:\s*\n'  # 方法签名
-            r'((?:\s*r?""".*?"""\s*)?)',  # docstring
+            r'((?:^    @(?:classmethod|staticmethod)\s*\n)?)'  # Decorators
+            r'^    def\s+(\w+)\s*\([^)]*\)(?:\s*->\s*[^:]+)?\s*:\s*\n'  # Method signature
+            r'((?:\s*r?""".*?"""\s*)?)',  # Docstring
             re.MULTILINE | re.DOTALL
         )
-        
+
         for m in method_pattern.finditer(class_body):
             decorator = m.group(1).strip() if m.group(1) else ""
             method_line = m.group(0)
             method_name, return_type, params = parse_method_signature(method_line)
-            
-            # 跳过解析失败的方法
+
+            # Skip methods that failed to parse
             if not method_name:
                 continue
-            
+
             method_docstring = m.group(3) if m.group(3) else ""
-            
-            # 清理 docstring
+
+            # Clean docstring
             if method_docstring:
                 doc_match = re.search(r'r?"""(.*?)"""', method_docstring, re.DOTALL)
                 method_docstring = doc_match.group(1) if doc_match else ""
-            
+
             is_deprecated, deprecated_msg = check_deprecated(method_docstring)
             
             method_info = MethodInfo(
@@ -340,23 +340,23 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
             else:
                 class_info.methods.append(method_info)
         
-        # 解析 @property
+        # Parse @property
         prop_pattern = re.compile(
             r'^    @property\s*\n'
             r'^    def\s+(\w+)\s*\(self\)\s*->\s*([^:]+):\s*\n'
             r'((?:\s*r?""".*?"""\s*)?)',
             re.MULTILINE | re.DOTALL
         )
-        
+
         for m in prop_pattern.finditer(class_body):
             prop_name = m.group(1)
             prop_type = m.group(2).strip()
             prop_docstring = m.group(3) if m.group(3) else ""
-            
+
             if prop_docstring:
                 doc_match = re.search(r'r?"""(.*?)"""', prop_docstring, re.DOTALL)
                 prop_docstring = doc_match.group(1) if doc_match else ""
-            
+
             is_deprecated, deprecated_msg = check_deprecated(prop_docstring)
             
             prop_info = PropertyInfo(
@@ -368,7 +368,7 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
             )
             class_info.properties.append(prop_info)
         
-        # 解析枚举值 (如 GAUSSIAN: RBFKernelType = ... #: 0)
+        # Parse enum values (e.g., GAUSSIAN: RBFKernelType = ... #: 0)
         if 'EnumBase' in bases:
             enum_pattern = re.compile(
                 r'^    (\w+)\s*:\s*\w+\s*=\s*\.\.\.\s*(?:#:\s*(\d+))?',
@@ -378,20 +378,20 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
                 enum_name = m.group(1)
                 enum_value = m.group(2) if m.group(2) else "0"
                 class_info.enum_values.append((enum_name, enum_value))
-        
+
         classes.append(class_info)
-    
-    # 扫描所有枚举引用，找出缺失的枚举值并补充
-    # 首先收集所有已定义的枚举类及其值
-    enum_classes = {}  # {类名: {已定义的枚举值名}}
+
+    # Scan all enum references and find missing enum values
+    # First collect all defined enum classes and their values
+    enum_classes = {}  # {class_name: {defined_enum_value_names}}
     for cls in classes:
         if 'EnumBase' in cls.bases:
             enum_classes[cls.name] = set(name for name, _ in cls.enum_values)
-    
-    # 搜索整个文件中的枚举引用 (格式: EnumClassName.VALUE_NAME)
+
+    # Search for enum references in the entire file (format: EnumClassName.VALUE_NAME)
     enum_ref_pattern = re.compile(r'\b([A-Z][A-Za-z0-9_]+)\.([A-Z][A-Z0-9_]+)\b')
-    referenced_values = {}  # {类名: {引用的枚举值名}}
-    
+    referenced_values = {}  # {class_name: {referenced_enum_value_names}}
+
     for match in enum_ref_pattern.finditer(content):
         enum_class = match.group(1)
         enum_value = match.group(2)
@@ -399,39 +399,39 @@ def parse_stub_file(file_path: str) -> List[ClassInfo]:
             if enum_class not in referenced_values:
                 referenced_values[enum_class] = set()
             referenced_values[enum_class].add(enum_value)
-    
-    # 找出缺失的枚举值并添加到对应的类中
+
+    # Find missing enum values and add them to the corresponding class
     missing_count = 0
     for cls in classes:
         if cls.name in enum_classes and cls.name in referenced_values:
             defined = enum_classes[cls.name]
             referenced = referenced_values[cls.name]
             missing = referenced - defined
-            
-            # 添加缺失的枚举值，使用类中最大值 + 1 作为起始
+
+            # Add missing enum values, starting with max_value + 1 from the class
             if missing:
                 max_value = max((int(v) for _, v in cls.enum_values), default=-1)
                 for value_name in sorted(missing):
                     max_value += 1
                     cls.enum_values.append((value_name, str(max_value)))
                     missing_count += 1
-    
+
     if missing_count > 0:
-        print(f"  - 补充了 {missing_count} 个缺失的枚举值")
+        print(f"  - Supplemented {missing_count} missing enum values")
     
     return classes
 
 
 def generate_mock_module(classes: List[ClassInfo], output_dir: str):
-    """生成 mock 模块"""
+    """Generate mock module"""
     os.makedirs(output_dir, exist_ok=True)
-    
-    # 生成 __init__.py
-    init_content = '''"""
-Unreal Engine Python Mock 模块
 
-这是一个从 unreal.py 存根文件生成的 mock 模块，可以在没有 Unreal Engine 环境时使用。
-支持通过 get_editor_property/set_editor_property 访问属性。
+    # Generate __init__.py
+    init_content = '''"""
+Unreal Engine Python Mock module
+
+This is a mock module generated from unreal.py stub files, usable without Unreal Engine environment.
+Supports accessing properties through get_editor_property/set_editor_property.
 """
 
 from .unreal_mock import *
@@ -440,12 +440,12 @@ from .unreal_mock import *
     with open(os.path.join(output_dir, '__init__.py'), 'w', encoding='utf-8') as f:
         f.write(init_content)
     
-    # 生成主模块
+    # Generate main module
     lines = []
-    
-    # 文件头
+
+    # File header
     lines.append('"""')
-    lines.append('Unreal Engine Python Mock 模块（自动生成）')
+    lines.append('Unreal Engine Python Mock module (Auto-generated)')
     lines.append('"""')
     lines.append('')
     lines.append('from __future__ import annotations')
@@ -459,16 +459,16 @@ from .unreal_mock import *
     lines.append('')
     lines.append('')
     lines.append('class DeprecatedError(Exception):')
-    lines.append('    """当使用已废弃的方法或属性时抛出"""')
+    lines.append('    """Raised when using deprecated methods or properties"""')
     lines.append('    pass')
     lines.append('')
     lines.append('')
-    
-    # 分层处理类：基类 -> 枚举类 -> 其他类
-    # 这样可以确保枚举类在被其他类引用之前已经定义
-    base_classes = []  # 基类（如 _WrapperBase, EnumBase, StructBase 等）
-    enum_classes = []  # 枚举类（继承自 EnumBase）
-    other_classes = [] # 其他类
+
+    # Layered class processing: base classes -> enum classes -> other classes
+    # This ensures enum classes are defined before being referenced by other classes
+    base_classes = []  # Base classes (e.g., _WrapperBase, EnumBase, StructBase, etc.)
+    enum_classes = []  # Enum classes (inheriting from EnumBase)
+    other_classes = []  # Other classes
     
     base_class_names = {'_WrapperBase', '_ObjectBase', 'EnumBase', 'StructBase', 
                         'DelegateBase', 'MulticastDelegateBase', 'Name', 'Text', 
@@ -482,43 +482,43 @@ from .unreal_mock import *
             enum_classes.append(cls)
         else:
             other_classes.append(cls)
-    
-    # 按顺序生成
-    lines.append('# ============== 基类 ==============')
+
+    # Generate in order
+    lines.append('# ============== Base Classes ==============')
     lines.append('')
     for cls in base_classes:
         lines.extend(generate_class_code(cls))
         lines.append('')
-    
-    lines.append('# ============== 枚举类 ==============')
+
+    lines.append('# ============== Enum Classes ==============')
     lines.append('')
     for cls in enum_classes:
         lines.extend(generate_class_code(cls))
         lines.append('')
-    
-    lines.append('# ============== 其他类 ==============')
+
+    lines.append('# ============== Other Classes ==============')
     lines.append('')
     for cls in other_classes:
         lines.extend(generate_class_code(cls))
         lines.append('')
-    
+
     with open(os.path.join(output_dir, 'unreal_mock.py'), 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))
-    
-    print(f"生成完成：{len(classes)} 个类")
-    print(f"  - 基类：{len(base_classes)} 个")
-    print(f"  - 枚举类：{len(enum_classes)} 个")
-    print(f"  - 其他类：{len(other_classes)} 个")
-    print(f"输出目录：{output_dir}")
+
+    print(f"Generation complete: {len(classes)} classes")
+    print(f"  - Base classes: {len(base_classes)}")
+    print(f"  - Enum classes: {len(enum_classes)}")
+    print(f"  - Other classes: {len(other_classes)}")
+    print(f"Output directory: {output_dir}")
 
 
 def generate_class_code(cls: ClassInfo) -> List[str]:
-    """生成单个类的代码"""
+    """Generate code for a single class"""
     lines = []
-    
-    # 类定义
+
+    # Class definition
     lines.append(f'class {cls.name}{cls.bases}:')
-    
+
     # Docstring
     if cls.docstring:
         escaped_doc = escape_docstring(cls.docstring.strip())
@@ -526,80 +526,80 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
         for line in escaped_doc.split('\n'):
             lines.append(f'    {line}')
         lines.append(f'    """')
-    
-    # 枚举值（如果是枚举类）
+
+    # Enum values (if enum class)
     if cls.enum_values:
         lines.append('')
         for enum_name, enum_value in cls.enum_values:
             lines.append(f'    {enum_name} = {enum_value}')
         lines.append('')
-    
-    # __init__ 方法
+
+    # __init__ method
     if cls.is_deprecated:
         escaped_msg = escape_string(cls.deprecated_msg)
         lines.append(f'    def __init__(self, *args, **kwargs):')
         lines.append(f'        raise DeprecatedError("{escaped_msg}")')
     else:
-        # 生成 __init__
+        # Generate __init__
         if cls.init_params:
             param_strs = ['self']
-            sanitized_params = []  # 记录被安全化处理的参数
+            sanitized_params = []  # Track parameters that need sanitization
             for name, type_hint, default in cls.init_params:
-                if name.startswith('*'): # *args or **kwargs
-                    # 变长参数不加默认值
+                if name.startswith('*'):  # *args or **kwargs
+                    # Variable length parameters without default values
                     if type_hint and type_hint != "Any":
-                         param_strs.append(f'{name}: {type_hint}')
+                        param_strs.append(f'{name}: {type_hint}')
                     else:
-                         param_strs.append(f'{name}')
+                        param_strs.append(f'{name}')
                 elif default:
                     safe_default = sanitize_default_value(default)
                     param_strs.append(f'{name}: {type_hint} = {safe_default}')
                     if safe_default != default:
                         sanitized_params.append((name, default))
                 else:
-                    # 对于 Mock，给所有普通参数默认值 None 以增强兼容性
+                    # For Mock, give all regular parameters default value None for better compatibility
                     param_strs.append(f'{name}: {type_hint} = None')
-            
-            # 如果有参数被安全化处理，添加 TODO 注释
+
+            # If any parameters were sanitized, add TODO comment
             if sanitized_params:
-                lines.append(f'    # TODO: 以下参数的默认值被安全化处理，原始值需要在 Unreal 环境中恢复:')
+                lines.append(f'    # TODO: The following parameters have been sanitized and original values need to be restored in Unreal environment:')
                 for param_name, original_default in sanitized_params:
                     lines.append(f'    #   - {param_name}: {original_default}')
-            
+
             lines.append(f'    def __init__({", ".join(param_strs)}):')
         else:
             lines.append(f'    def __init__(self, *args, **kwargs):')
-        
-        # 初始化属性存储
+
+        # Initialize property storage
         lines.append(f'        self._properties = {{}}')
-        
-        # 设置参数为属性
+
+        # Set parameters as properties
         for name, type_hint, default in cls.init_params:
             if not name.startswith('*'):
-                 lines.append(f'        self._properties["{name}"] = {name}')
-        
-        # 初始化所有 property
+                lines.append(f'        self._properties["{name}"] = {name}')
+
+        # Initialize all properties
         for prop in cls.properties:
             if prop.name not in [p[0] for p in cls.init_params]:
                 mock_val = get_mock_return_value(prop.type_hint)
                 lines.append(f'        self._properties["{prop.name}"] = {mock_val}')
-    
+
     # get_editor_property / set_editor_property
     if not cls.is_deprecated and ('_ObjectBase' in cls.bases or '_WrapperBase' in cls.bases or 'StructBase' in cls.bases or cls.name in ('_ObjectBase', 'StructBase', '_WrapperBase')):
         lines.append('')
         lines.append('    def get_editor_property(self, name: str) -> object:')
-        lines.append('        """获取编辑器属性值"""')
+        lines.append('        """Get editor property value"""')
         lines.append('        return self._properties.get(name, None)')
         lines.append('')
         lines.append('    def set_editor_property(self, name: str, value: object, notify_mode=None) -> None:')
-        lines.append('        """设置编辑器属性值"""')
+        lines.append('        """Set editor property value"""')
         lines.append('        self._properties[name] = value')
         lines.append('')
         lines.append('    def set_editor_properties(self, properties: dict) -> None:')
-        lines.append('        """批量设置编辑器属性"""')
+        lines.append('        """Batch set editor properties"""')
         lines.append('        self._properties.update(properties)')
     
-    # 生成 properties
+    # Generate properties
     for prop in cls.properties:
         lines.append('')
         lines.append('    @property')
@@ -607,13 +607,13 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
         if prop.docstring:
             escaped_prop_doc = escape_docstring(prop.docstring.strip())
             lines.append(f'        r"""{escaped_prop_doc}"""')
-        
+
         if prop.is_deprecated:
             escaped_prop_msg = escape_string(prop.deprecated_msg)
             lines.append(f'        raise DeprecatedError("{escaped_prop_msg}")')
         else:
             lines.append(f'        return self._properties.get("{prop.name}", None)')
-        
+
         lines.append('')
         lines.append(f'    @{prop.name}.setter')
         lines.append(f'    def {prop.name}(self, value: {prop.type_hint}) -> None:')
@@ -622,23 +622,23 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
             lines.append(f'        raise DeprecatedError("{escaped_prop_msg}")')
         else:
             lines.append(f'        self._properties["{prop.name}"] = value')
-    
-    # 生成方法
+
+    # Generate methods
     for method in cls.methods:
         if method.name.startswith('_') and method.name != '__init__':
-            continue  # 跳过私有方法（除了 __init__）
-        
+            continue  # Skip private methods (except __init__)
+
         lines.append('')
-        
-        # 构建参数列表
+
+        # Build parameter list
         param_strs = []
         if method.is_classmethod:
-             param_strs.append('cls')
+            param_strs.append('cls')
         elif method.is_staticmethod:
-             pass
+            pass
         else:
-             param_strs.append('self')
-             
+            param_strs.append('self')
+
         sanitized_params = []
         if method.params:
             for name, type_hint, default in method.params:
@@ -648,12 +648,12 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
                     if safe_default != default:
                         sanitized_params.append((name, default))
                 else:
-                    if name.startswith('*'): # *args or **kwargs
-                         param_strs.append(f'{name}')
+                    if name.startswith('*'):  # *args or **kwargs
+                        param_strs.append(f'{name}')
                     else:
-                         param_strs.append(f'{name}: {type_hint}')
+                        param_strs.append(f'{name}: {type_hint}')
         else:
-            # Fallback (应该不会发生，除非解析失败)
+            # Fallback (should not happen unless parsing fails)
             param_strs.append("*args")
             param_strs.append("**kwargs")
 
@@ -661,25 +661,25 @@ def generate_class_code(cls: ClassInfo) -> List[str]:
             lines.append('    @classmethod')
         elif method.is_staticmethod:
             lines.append('    @staticmethod')
-            
+
         lines.append(f'    def {method.name}({", ".join(param_strs)}) -> {method.return_type}:')
-        
+
         if method.docstring:
-            # 简化 docstring
+            # Simplify docstring
             first_line = escape_docstring(method.docstring.strip().split('\n')[0])
             lines.append(f'        """{first_line}"""')
-        
+
         if method.is_deprecated:
             escaped_method_msg = escape_string(method.deprecated_msg)
             lines.append(f'        raise DeprecatedError("{escaped_method_msg}")')
         else:
             mock_val = get_mock_return_value(method.return_type)
             lines.append(f'        return {mock_val}')
-    
-    # 如果类体为空，添加 pass
+
+    # If class body is empty, add pass
     if len(lines) == 1 or (len(lines) == 2 and 'r"""' in lines[1]):
         lines.append('    pass')
-    
+
     return lines
 
 
@@ -705,38 +705,38 @@ def main():
     except ImportError:
         pass
 
-    parser = argparse.ArgumentParser(description='将 Unreal Python 存根文件转换为 Mock 模块')
+    parser = argparse.ArgumentParser(description='Convert Unreal Python stub files to Mock modules')
 
-    # 始终接受参数，但在有配置时设置默认值
+    # Always accept arguments, but set defaults when config is available
     parser.add_argument('--input', '-i',
                        required=(not has_config),
                        default=default_input_path,
-                       help='输入的存根文件路径' + (f' (默认: {default_input_path})' if default_input_path else ''))
+                       help='Path to input stub file' + (f' (default: {default_input_path})' if default_input_path else ''))
     parser.add_argument('--output', '-o',
                        required=(not has_config),
                        default=default_output_dir,
-                       help='输出目录' + (f' (默认: {default_output_dir})' if default_output_dir else ''))
+                       help='Output directory' + (f' (default: {default_output_dir})' if default_output_dir else ''))
 
     args = parser.parse_args()
 
-    # 获取最终路径（命令行参数优先）
+    # Get final paths (command line arguments take priority)
     input_path = args.input
     output_dir = args.output
 
     if not input_path:
-        print(f"❌ 错误: 未能找到 Unreal Stub 文件 (Project: {config.get_project_root() if has_config else 'Unknown'})")
+        print(f"❌ Error: Could not find Unreal Stub file (Project: {config.get_project_root() if has_config else 'Unknown'})")
         sys.exit(1)
 
-    print(f"解析存根文件: {input_path}")
+    print(f"Parsing stub file: {input_path}")
     if not os.path.exists(input_path):
-         print(f"❌ 文件不存在: {input_path}")
-         sys.exit(1)
+        print(f"❌ File not found: {input_path}")
+        sys.exit(1)
 
     classes = parse_stub_file(input_path)
-    print(f"找到 {len(classes)} 个类定义")
+    print(f"Found {len(classes)} class definitions")
 
-    print(f"生成 Mock 模块...")
-    print(f"输出目录: {output_dir}")
+    print(f"Generating Mock module...")
+    print(f"Output directory: {output_dir}")
     generate_mock_module(classes, output_dir)
 
 

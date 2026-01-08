@@ -166,7 +166,7 @@ Environment Variables:
     if not args.code and not args.file:
         parser.error("Either --code or --file must be specified")
 
-    # 确定项目名称（优先级：命令行参数 > 环境变量自动检测）
+    # Determine project name (Priority: CLI args > Auto-detect env var)
     project_name = args.project_name if args.project_name else get_default_project_name()
 
     if not args.project_path and not project_name:

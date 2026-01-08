@@ -42,11 +42,11 @@ class TestIntegration(unittest.TestCase):
             result = self.run_validator(temp_path)
             # It might return 0 even if validation fails (just prints report)
             # We check output for standard report header
-            self.assertIn("UE5 Python API 验证报告", result.stdout)
+            self.assertIn("UE5 Python API Validation Report", result.stdout)
             
             # If mock is present, it might say "Object" exists or not.
             # If mock is NOT present, validate.py prints "Running in static analysis mode" or fails to import?
-            # validate.py: "⚠️ 未检测到 mock_unreal 模块..." but continues.
+            # validate.py: "⚠️ mock_unreal module not detected..." but continues.
             self.assertEqual(result.returncode, 0)
         finally:
             if os.path.exists(temp_path):

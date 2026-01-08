@@ -1,12 +1,12 @@
 ---
-description: 查询 UE5 API 的详细信息
+description: Query detailed information about UE5 APIs
 ---
 
 # /check-api
 
-查询指定 UE5 类或方法的详细信息，包括参数约束、废弃状态、使用示例等。
+Query detailed information about a specified UE5 class or method, including parameter constraints, deprecation status, usage examples, etc.
 
-## 用法
+## Usage
 
 ```
 /check-api unreal.<ClassName>
@@ -14,60 +14,60 @@ description: 查询 UE5 API 的详细信息
 /check-api unreal.<function_name>
 ```
 
-**注意事项:**
-- **必须以 `unreal.` 开头**
-- **必须使用精确的类名或方法名**（如 `unreal.Actor`, `unreal.Actor.set_actor_location`）
-- **格式要求**: 只接受 `unreal.<name>` 或 `unreal.<ClassName>.<member_name>` 格式
-- **支持模块级函数查询**（如 `unreal.log`, `unreal.log_warning`）
+**Important Notes:**
+- **Must start with `unreal.`**
+- **Must use exact class or method names** (e.g., `unreal.Actor`, `unreal.Actor.set_actor_location`)
+- **Format requirement**: Only accepts `unreal.<name>` or `unreal.<ClassName>.<member_name>` format
+- **Supports module-level function queries** (e.g., `unreal.log`, `unreal.log_warning`)
 
-## 步骤
+## Steps
 
-1. 运行 API 查询脚本：
+1. Run the API query script:
    ```bash
    python ${CLAUDE_PLUGIN_ROOT}/skills/api-validator/scripts/validate.py --query "$ARGUMENTS"
    ```
 
-2. **直接显示脚本的输出内容**。
+2. **Display the script's output directly**.
 
    > [!IMPORTANT]
-   > 不要尝试解释、扩展或添加额外的 API 用法示例，除非脚本输出中包含这些信息。
-   > Claude 的内部知识对于 UE5 Python API 来说可能是不准确的（很多 C++ API 并未暴露给 Python，例如 `GameplayTagsManager`）。
-   > 只展示工具返回的真实结果。
+   > Do not attempt to interpret, expand, or add additional API usage examples unless they are included in the script output.
+   > Claude's internal knowledge may be inaccurate for UE5 Python APIs (many C++ APIs are not exposed to Python, e.g., `GameplayTagsManager`).
+   > Only display the actual results returned by the tool.
 
-## 示例
+## Examples
 
-### 查询类信息
+### Query Class Information
 ```
 /check-api unreal.Actor
 ```
 
-输出：
+Output:
 ```
-查询 API: unreal.Actor
-✅ 类 Actor 存在
-文档: ...
+Query API: unreal.Actor
+✅ Class Actor exists
+Documentation: ...
 ```
 
-### 查询方法信息
+### Query Method Information
 ```
 /check-api unreal.Actor.set_actor_location
 ```
 
-输出：
+Output:
 ```
-查询 API: unreal.Actor.set_actor_location
-✅ Actor.set_actor_location 存在
-文档: ...
+Query API: unreal.Actor.set_actor_location
+✅ Actor.set_actor_location exists
+Documentation: ...
 ```
 
-### 查询模块级函数
+### Query Module-Level Functions
 ```
 /check-api unreal.log
 ```
 
-输出：
+Output:
 ```
-查询 API: unreal.log
-✅ 函数 log 存在
-文档: ...
+Query API: unreal.log
+✅ Function log exists
+Documentation: ...
 ```

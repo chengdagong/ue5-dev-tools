@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-UE5 Python API 验证工具
+UE5 Python API Validator
 """
 
 import os
@@ -13,30 +13,30 @@ import subprocess
 import subprocess
 from typing import List, Dict, Optional, Any, Tuple
 
-# 确保能导入同目录下的 config 模块
+# Ensure config module in the same directory can be imported
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 import config
 
-# 路径定义
-# 优先使用 CLAUDE_PLUGIN_ROOT (由 Claude Code 注入)
+# Path definitions
+# Prefer CLAUDE_PLUGIN_ROOT (injected by Claude Code)
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT")
 if not PLUGIN_ROOT:
-    # Fallback: 假设脚本位置 <root>/skills/api-validator/scripts/validate.py
+    # Fallback: Assume script location <root>/skills/api-validator/scripts/validate.py
     PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
 
-# 定义插件内部路径
+# Define internal plugin paths
 SKILL_ROOT = os.path.join(PLUGIN_ROOT, "skills", "api-validator")
 CONVERTER_SCRIPT = os.path.join(SKILL_ROOT, "scripts", "convert_stub_to_mock.py")
 EXTRACTOR_SCRIPT = os.path.join(SKILL_ROOT, "scripts", "cpp_metadata_extractor.py")
 
-# 获取项目根目录和Mock路径 (via config)
+# Get project root and Mock path (via config)
 PROJECT_ROOT = config.get_project_root()
 MOCK_DIR = config.get_mock_dir(PROJECT_ROOT)
 LIB_DIR = MOCK_DIR
 
-# 常见的 UE5 源码路径 (MacOS)
+# Common UE5 source paths (MacOS)
 POTENTIAL_UE5_SOURCE_PATHS = [
     "/Users/Shared/Epic Games/UE_5.7/Engine/Source",
     "/Users/Shared/Epic Games/UE_5.6/Engine/Source",
@@ -46,61 +46,61 @@ POTENTIAL_UE5_SOURCE_PATHS = [
 ]
 
 def ensure_mock_module(custom_stub_path: Optional[str] = None):
-    """确保 mock_unreal 模块存在，如果不存在则尝试生成
+    """Ensure mock_unreal module exists, try to generate if not
 
     Args:
-        custom_stub_path: 用户指定的 unreal.py stub 文件路径（通过 --input 参数）
+        custom_stub_path: User specified unreal.py stub file path (via --input argument)
     """
-    # 检查是否存在 (检查 unreal_mock.py)
+    # Check if exists (check unreal_mock.py)
     if os.path.exists(os.path.join(MOCK_DIR, "unreal_mock.py")):
         return True
 
-    print("⚠️ 未检测到 mock_unreal 模块，尝试自动生成...")
+    print("⚠️ mock_unreal module not detected, attempting to auto-generate...")
 
-    # 查找 stub 文件
+    # Find stub file
     stub_path = custom_stub_path or config.resolve_stub_path(PROJECT_ROOT)
 
     if not stub_path:
         return False
 
-    # 验证自定义路径是否存在
+    # Validate custom path exists
     if custom_stub_path and not os.path.exists(custom_stub_path):
-        print(f"❌ 指定的 Stub 文件不存在: {custom_stub_path}")
+        print(f"❌ Specified Stub file does not exist: {custom_stub_path}")
         return False
 
-    print(f"ℹ️ 找到 Stub 文件: {stub_path}")
-    print(f"ℹ️ 生成 Mock 模块到: {MOCK_DIR}")
+    print(f"ℹ️ Found Stub file: {stub_path}")
+    print(f"ℹ️ Generating Mock module to: {MOCK_DIR}")
 
     try:
         os.makedirs(MOCK_DIR, exist_ok=True)
-        # 传递自定义 stub 路径给 converter
+        # Pass custom stub path to converter
         cmd = [sys.executable, CONVERTER_SCRIPT]
         if custom_stub_path:
             cmd.extend(['--input', custom_stub_path, '--output', MOCK_DIR])
         subprocess.check_call(cmd)
-        print("✅ Mock 模块生成成功！")
+        print("✅ Mock module generated successfully!")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ 生成 Mock 模块失败: {e}")
+        print(f"❌ Failed to generate Mock module: {e}")
         return False
     except Exception as e:
-        print(f"❌ 发生错误: {e}")
+        print(f"❌ An error occurred: {e}")
         return False
 
 def ensure_metadata(output_path: str):
-    """确保 C++ 元数据存在，如果不存在则尝试从 UE5 源码提取"""
+    """Ensure C++ metadata exists, try to extract from UE5 source if not"""
     if os.path.exists(output_path):
         return
 
-    print("⚠️ 未检测到 C++ 元数据，尝试自动提取...")
+    print("⚠️ C++ metadata not detected, attempting to auto-extract...")
     
     ue5_source = None
-    # 1. 尝试从环境变量获取 UE5_ENGINE_DIR
+    # 1. Try to get from environment variable UE5_ENGINE_DIR
     env_ue5 = os.environ.get("UE_ENGINE_DIR")
     if env_ue5 and os.path.exists(os.path.join(env_ue5, "Engine/Source")):
         ue5_source = os.path.join(env_ue5, "Engine/Source")
     
-    # 2. 尝试常见路径
+    # 2. Try common paths
     if not ue5_source:
         for p in POTENTIAL_UE5_SOURCE_PATHS:
             if os.path.isdir(p):
@@ -108,17 +108,17 @@ def ensure_metadata(output_path: str):
                 break
     
     if not ue5_source:
-        print("ℹ️ 未检测到 UE5 源码路径，跳过元数据提取。")
+        print("ℹ️ UE5 source path not detected, skipping metadata extraction.")
         return
 
-    print(f"ℹ️ 检测到 UE5 源码: {ue5_source}")
+    print(f"ℹ️ Detected UE5 source: {ue5_source}")
     target_scan_path = os.path.join(ue5_source, "Runtime/Engine/Classes/GameFramework")
     
     if not os.path.exists(target_scan_path):
-        print(f"ℹ️ 源码路径中未找到 Engine/Classes/GameFramework，跳过。")
+        print(f"ℹ️ Engine/Classes/GameFramework not found in source path, skipping.")
         return
 
-    print("⏳ 正在提取元数据 (可能需要几秒钟)...")
+    print("⏳ Extracting metadata (may take a few seconds)...")
     try:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         subprocess.check_call([
@@ -127,49 +127,49 @@ def ensure_metadata(output_path: str):
             "--ue5-path", target_scan_path,
             "--output", output_path
         ])
-        print("✅ 元数据提取成功！")
+        print("✅ Metadata extracted successfully!")
     except Exception as e:
-        print(f"❌ 元数据提取失败: {e}")
+        print(f"❌ Metadata extraction failed: {e}")
 
-# 默认定义，防止 NameError
+# Default definition to prevent NameError
 class DeprecatedError(Exception):
     pass
 
-# 全局变量用于存储用户指定的 stub 路径
+# Global variable to store user specified stub path
 _custom_stub_path = None
 
 def init_unreal_module(custom_stub_path: Optional[str] = None):
-    """初始化 unreal mock 模块
+    """Initialize unreal mock module
 
     Args:
-        custom_stub_path: 用户指定的 unreal.py stub 文件路径（通过 --input 参数）
+        custom_stub_path: User specified unreal.py stub file path (via --input argument)
 
     Returns:
         unreal module or None
     """
     global DeprecatedError
 
-    # 尝试加载 mock_unreal
+    # Try to load mock_unreal
     if ensure_mock_module(custom_stub_path):
-        # 直接将 MOCK_DIR 加入 path，并导入 unreal_mock
+        # Directly add MOCK_DIR to path and import unreal_mock
         sys.path.insert(0, MOCK_DIR)
         try:
             import unreal_mock as unreal
-            # 覆盖默认的 DeprecatedError
+            # Override default DeprecatedError
             if hasattr(unreal, 'DeprecatedError'):
                 DeprecatedError = unreal.DeprecatedError
             return unreal
         except ImportError as e:
-            # print(f"❌ 导入 mock_unreal 失败: {e}")
+            # print(f"❌ Failed to import mock_unreal: {e}")
             return None
     else:
-        # print("⚠️ 将在仅静态分析模式下运行 (无运行时 API 检查)")
+        # print("⚠️ Will run in static analysis only mode (no runtime API checks)")
         return None
 
-# 初始化时不加载，等到 main() 中根据参数决定
+# Do not load at initialization, decide in main() based on arguments
 unreal = None
 
-# C++ 元数据处理
+# C++ Metadata processing
 METADATA_PATH = os.path.join(MOCK_DIR, "metadata.json")
 ensure_metadata(METADATA_PATH)
 
@@ -179,7 +179,7 @@ if os.path.exists(METADATA_PATH):
         with open(METADATA_PATH, 'r', encoding='utf-8') as f:
             METADATA = json.load(f)
     except Exception as e:
-        print(f"⚠️ 加载元数据失败: {e}")
+        print(f"⚠️ Failed to load metadata: {e}")
 
 class ValidationReport:
     def __init__(self):
@@ -189,29 +189,29 @@ class ValidationReport:
         self.stats = {"classes": 0, "methods": 0}
 
     def add_error(self, msg: str, line: int = 0):
-        self.errors.append(f"❌ 错误 (Line {line}): {msg}")
+        self.errors.append(f"❌ Error (Line {line}): {msg}")
 
     def add_warning(self, msg: str, line: int = 0):
-        self.warnings.append(f"⚠️ 警告 (Line {line}): {msg}")
+        self.warnings.append(f"⚠️ Warning (Line {line}): {msg}")
 
     def add_info(self, msg: str):
-        self.infos.append(f"ℹ️ 信息: {msg}")
+        self.infos.append(f"ℹ️ Info: {msg}")
 
     def print_report(self):
-        print("\n=== UE5 Python API 验证报告 ===\n")
+        print("\n=== UE5 Python API Validation Report ===\n")
         
         for info in self.infos:
             print(info)
             
         if not self.errors and not self.warnings:
-            print("✅ 验证通过！未发现问题。")
+            print("✅ Validation Passed! No issues found.")
         else:
             for warning in self.warnings:
                 print(warning)
             for error in self.errors:
                 print(error)
                 
-        print(f"\n统计: {self.stats['classes']} 个类引用, {self.stats['methods']} 个方法调用")
+        print(f"\nStats: {self.stats['classes']} class references, {self.stats['methods']} method calls")
 
 class AstValidator(ast.NodeVisitor):
     def __init__(self, report: ValidationReport):
@@ -224,21 +224,21 @@ class AstValidator(ast.NodeVisitor):
         for alias in node.names:
             if alias.name == "unreal":
                 self.imported_unreal_as = alias.asname or "unreal"
-                self.report.add_info(f"检测到 unreal 导入为 '{self.imported_unreal_as}'")
+                self.report.add_info(f"Detected unreal import as '{self.imported_unreal_as}'")
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
         if node.module == "unreal":
-            self.report.add_info("检测到从 unreal 导入具体内容")
+            self.report.add_info("Detected import from unreal")
         self.generic_visit(node)
 
     def visit_Attribute(self, node):
-        # 检查 unreal.Member 访问
-        # 但要区分：函数调用 (unreal.log()) vs 类引用 (unreal.Actor)
+        # Check unreal.Member access
+        # But distinguish: function call (unreal.log()) vs class reference (unreal.Actor)
         if isinstance(node.value, ast.Name) and node.value.id == self.imported_unreal_as:
             member_name = node.attr
-            # 只在非函数调用上下文中验证为类
-            # 函数调用会在 visit_Call 中处理
+            # Only validate as class in non-function call context
+            # Function calls will be handled in visit_Call
             if id(node) not in self.called_attributes:
                 self._validate_unreal_class(member_name, node.lineno)
         self.generic_visit(node)
@@ -246,31 +246,31 @@ class AstValidator(ast.NodeVisitor):
     def visit_Call(self, node):
         self.report.stats["methods"] += 1
 
-        # 检查是否调用了 unreal.something()
+        # Check if unreal.something() is called
         if isinstance(node.func, ast.Attribute):
             # Mark this attribute node as being called (so visit_Attribute won't validate it as a class)
             self.called_attributes.add(id(node.func))
             self._check_attribute_call(node)
         elif isinstance(node.func, ast.Name):
-            # 检查是否是已知的类构造函数
+            # Check if it is a known class constructor
             if node.func.id in self.variable_types:
-                # 可能是某种工厂方法
+                # Might be some factory method
                 pass
 
         self.generic_visit(node)
 
     def _check_attribute_call(self, node):
-        # 处理 unreal.something() 调用
-        # 可能是：unreal.SomeClass() 或 obj.some_method() 或 unreal.Class.method() 或 unreal.module_function()
+        # Handle unreal.something() call
+        # Could be: unreal.SomeClass() or obj.some_method() or unreal.Class.method() or unreal.module_function()
 
-        # Case 1: node.func.value 是 Name (unreal.something() 或 obj.method())
+        # Case 1: node.func.value is Name (unreal.something() or obj.method())
         if isinstance(node.func.value, ast.Name):
             obj_name = node.func.value.id
             member_name = node.func.attr
 
             # SubCase 1.1: unreal.something()
             if obj_name == self.imported_unreal_as:
-                # 可能是类构造函数或模块级函数
+                # Could be class constructor or module-level function
                 self._validate_unreal_member_call(member_name, node)
 
             # SubCase 1.2: obj.method()
@@ -282,54 +282,54 @@ class AstValidator(ast.NodeVisitor):
                 if member_name in ("get_editor_property", "set_editor_property"):
                     self._validate_editor_property_access(class_name, node)
                 
-                # TODO: 也可以检查方法参数
+                # TODO: Can also check method arguments
 
-        # Case 2: node.func.value 是 Attribute (unreal.SomeClass.static_method())
+        # Case 2: node.func.value is Attribute (unreal.SomeClass.static_method())
         elif isinstance(node.func.value, ast.Attribute):
             sub_node = node.func.value
-            # 检查 sub_node 是否是 unreal.SomeClass
+            # Check if sub_node is unreal.SomeClass
             if isinstance(sub_node.value, ast.Name) and sub_node.value.id == self.imported_unreal_as:
                 class_name = sub_node.attr
                 method_name = node.func.attr
 
-                # 验证类存在性 (visit_Attribute 会处理，但为了验证方法必须先确认类)
-                # 验证方法
+                # Validate class existence (visit_Attribute will handle, but to validate method must confirm class first)
+                # Validate method
                 self._validate_method(class_name, method_name, node.lineno)
-                # TODO: 检查静态方法参数
+                # TODO: Check static method arguments
 
     def _validate_unreal_member_call(self, member_name: str, node: ast.Call):
-        """验证 unreal.something() 调用，可能是类构造函数或模块级函数"""
+        """Validate unreal.something() call, could be class constructor or module-level function"""
         if not unreal:
             return
 
         if not hasattr(unreal, member_name):
-            self.report.add_error(f"'unreal.{member_name}' 不存在", node.lineno)
+            self.report.add_error(f"'unreal.{member_name}' does not exist", node.lineno)
             return
 
         member = getattr(unreal, member_name)
 
-        # 检查是类还是函数
+        # Check if it is class or function
         if isinstance(member, type):
-            # 这是一个类，可能需要检测是否已废弃 (Runtime & Metadata)
+            # It is a class, may need to detect if deprecated (Runtime & Metadata)
             try:
-                # 尝试实例化以检测 Runtime Deprecated
-                # 注意：这里我们主要检测构造函数是否抛出 DeprecatedError
+                # Try to instantiate to detect Runtime Deprecated
+                # Note: Here we mainly detect if constructor raises DeprecatedError
                 member()
             except DeprecatedError as e:
-                self.report.add_warning(f"类 '{member_name}' 已废弃(Runtime): {e}", node.lineno)
+                self.report.add_warning(f"Class '{member_name}' is deprecated (Runtime): {e}", node.lineno)
             except Exception:
                 pass
                 
-            # 同时也检查 Metadata (因为 visit_Attribute 被跳过了)
+            # Also check Metadata (because visit_Attribute was skipped)
             if member_name in METADATA and METADATA[member_name].get("deprecated", False):
-                msg = METADATA[member_name].get("deprecation_message", "此类已废弃")
-                self.report.add_warning(f"类 '{member_name}' 已废弃(Metadata): {msg}", node.lineno)
+                msg = METADATA[member_name].get("deprecation_message", "This class is deprecated")
+                self.report.add_warning(f"Class '{member_name}' is deprecated (Metadata): {msg}", node.lineno)
                 
-            # 验证构造函数参数
+            # Validate constructor arguments
             self._validate_constructor(member_name, node)
         else:
-            # 这是一个模块级函数或其他可调用对象
-            # 模块级函数不需要特殊验证（它们存在即可用）
+            # It is a module-level function or other callable
+            # Module-level functions do not need special validation (they exist effectively available)
             pass
 
     def _validate_constructor(self, class_name: str, node: ast.Call):
@@ -379,7 +379,7 @@ class AstValidator(ast.NodeVisitor):
                 self._check_arg_type(arg_node, param, context_name)
 
     def _check_arg_type(self, arg_node, param, context_name):
-        # 仅检查常量字面量
+        # Only check constant literals
         if not isinstance(arg_node, ast.Constant):
             return
             
@@ -390,13 +390,13 @@ class AstValidator(ast.NodeVisitor):
         if anno == inspect.Parameter.empty:
             return
             
-        # 解析 Annotation
+        # Parse Annotation
         target_type_name = None
         if isinstance(anno, type):
             target_type_name = anno.__name__
         elif isinstance(anno, str):
             target_type_name = anno
-            # 可能包含 module 前缀，如 'unreal.Name'
+            # May contain module prefix, e.g., 'unreal.Name'
             if '.' in target_type_name:
                 target_type_name = target_type_name.split('.')[-1]
         
@@ -405,9 +405,9 @@ class AstValidator(ast.NodeVisitor):
             
         actual_type_name = val_type.__name__
         
-        # 字符串类型检查增强
+        # String type check enhancement
         if actual_type_name == "str":
-            # 定义允许接受字符串的 Unreal 类型白名单
+            # Allowed types for strings in Unreal
             allowed_types_for_str = {
                 "str", "String", "Name", "Text", 
                 "SoftObjectPath", "SoftClassPath", 
@@ -417,7 +417,7 @@ class AstValidator(ast.NodeVisitor):
             
             if target_type_name not in allowed_types_for_str:
                  self.report.add_warning(
-                     f"参数类型可能不匹配(Line {arg_node.lineno}): '{context_name}' 的参数 '{param.name}' 期望 '{target_type_name}', 但提供了 'str'。", 
+                     f"Argument type mismatch possible (Line {arg_node.lineno}): Argument '{param.name}' in '{context_name}' expects '{target_type_name}', but 'str' was provided.", 
                      arg_node.lineno
                  )
 
@@ -427,93 +427,93 @@ class AstValidator(ast.NodeVisitor):
         if not unreal:
             return
 
-        # 检查类是否存在
+        # Check if class exists
         if not hasattr(unreal, class_name):
-            self.report.add_error(f"类 'unreal.{class_name}' 不存在", lineno)
+            self.report.add_error(f"Class 'unreal.{class_name}' does not exist", lineno)
             return
 
         cls = getattr(unreal, class_name)
         
-        # 1. 动态检查: 尝试实例化以检测 Deprecated
+        # 1. Dynamic check: Try instantiate to detect Deprecated
         try:
-            # Mock 类通常允许无参实例化
+            # Mock classes usually allow parameter-less instantiation
             _ = cls()
         except DeprecatedError as e:
-            self.report.add_warning(f"类 '{class_name}' 已废弃(Runtime): {e}", lineno)
+            self.report.add_warning(f"Class '{class_name}' is deprecated (Runtime): {e}", lineno)
         except Exception:
-            # 忽略其他实例化错误（虽然 mock 类通常不会报错）
+            # Ignore other instantiation errors (although mock classes usually don't raise error)
             pass
             
-        # 2. 静态检查: C++ 元数据
+        # 2. Static check: C++ Metadata
         if class_name in METADATA and METADATA[class_name].get("deprecated", False):
-            msg = METADATA[class_name].get("deprecation_message", "此类已废弃")
-            self.report.add_warning(f"类 '{class_name}' 已废弃(Metadata): {msg}", lineno)
+            msg = METADATA[class_name].get("deprecation_message", "This class is deprecated")
+            self.report.add_warning(f"Class '{class_name}' is deprecated (Metadata): {msg}", lineno)
 
     def _validate_method(self, class_name: str, method_name: str, lineno: int):
         if not unreal:
             return
             
         if not hasattr(unreal, class_name):
-            return # 之前已经报过错了
+            return # Already reported
             
         cls = getattr(unreal, class_name)
         
-        # 检查方法是否存在
+        # Check if method exists
         if not hasattr(cls, method_name):
-            self.report.add_error(f"方法 '{method_name}' 不存在于类 '{class_name}'", lineno)
+            self.report.add_error(f"Method '{method_name}' does not exist in class '{class_name}'", lineno)
             return
             
         method = getattr(cls, method_name)
         
-        # 1. 动态检查: 尝试调用以检测 Deprecated
+        # 1. Dynamic check: Try call to detect Deprecated
         try:
-            # 判断是否需要实例
+            # Determine if instance is needed
             is_bound = False
             try:
-                # 尝试创建实例来调用实例方法
-                # 如果 cls() 报错 (例如类本身 deprecated), 我们可能无法测试方法
-                # 但如果只是为了测试方法，我们可以跳过这一步
+                # Try create instance to call instance method
+                # If cls() raises error (e.g. class itself deprecated), we might not be able to test method
+                # But if just for testing method, we can skip this step
                 instance = cls()
                 bound_method = getattr(instance, method_name)
                 is_bound = True
-                bound_method() # Mock 方法接受任意参数
+                bound_method() # Mock method accepts any args
             except DeprecatedError as e:
-                # 区分是类构造函数抛出的还是方法抛出的
-                # 如果我们在调用 cast/init 时捕获到，那可能是类的问题，但这里主要是测方法
-                # 如果 is_bound 为 True，说明是方法调用抛出的
+                # Distinguish if it was raised by constructor or method
+                # If we catch during cast/init, it might be class issue, but here testing method mainly
+                # If is_bound is True, it means method call raised it
                 if is_bound:
-                    self.report.add_warning(f"方法 '{class_name}.{method_name}' 已废弃(Runtime): {e}", lineno)
+                    self.report.add_warning(f"Method '{class_name}.{method_name}' is deprecated (Runtime): {e}", lineno)
             except Exception:
                 pass
                 
-            # 如果是静态方法或类方法，可以直接调用
+            # If static method or class method, can call directly
             if not is_bound:
                  try:
                      method()
                  except DeprecatedError as e:
-                     self.report.add_warning(f"方法 '{class_name}.{method_name}' 已废弃(Runtime): {e}", lineno)
+                     self.report.add_warning(f"Method '{class_name}.{method_name}' is deprecated (Runtime): {e}", lineno)
                  except Exception:
                      pass
 
         except Exception:
             pass
         
-        # 2. 静态检查: 使用元数据
+        # 2. Static check: Use metadata
         if class_name in METADATA:
             methods = METADATA[class_name].get("functions", {})
             if method_name in methods:
                 func_data = methods[method_name]
                 if func_data.get("deprecated", False):
-                    msg = func_data.get("deprecation_message", "此方法已废弃")
-                    self.report.add_warning(f"方法 '{class_name}.{method_name}' 已废弃(Metadata): {msg}", lineno)
+                    msg = func_data.get("deprecation_message", "This method is deprecated")
+                    self.report.add_warning(f"Method '{class_name}.{method_name}' is deprecated (Metadata): {msg}", lineno)
 
     def visit_Assign(self, node):
-        # 简单的类型推断： var = unreal.SomeClass()
+        # Simple type inference: var = unreal.SomeClass()
         if isinstance(node.value, ast.Call):
             if isinstance(node.value.func, ast.Attribute):
                 if isinstance(node.value.func.value, ast.Name) and node.value.func.value.id == self.imported_unreal_as:
                     class_name = node.value.func.attr
-                    # 将左侧变量标记为该类型
+                    # Mark left side variable as this type
                     for target in node.targets:
                         if isinstance(target, ast.Name):
                             self.variable_types[target.id] = class_name
@@ -538,17 +538,17 @@ class AstValidator(ast.NodeVisitor):
             if prop_name not in properties:
                 # Some properties might be dynamic or missing from metadata, treat as warning or error?
                 # For now, if we have metadata for the class but not the property, it's suspicious.
-                self.report.add_error(f"属性 '{prop_name}' 不存在于类 '{class_name}' (Editor Property)", node.lineno)
+                self.report.add_error(f"Property '{prop_name}' does not exist in class '{class_name}' (Editor Property)", node.lineno)
             else:
                 prop_data = properties[prop_name]
                 if prop_data.get("deprecated", False):
-                    msg = prop_data.get("deprecation_message", "此属性已废弃")
-                    self.report.add_warning(f"属性 '{class_name}.{prop_name}' 已废弃: {msg}", node.lineno)
+                    msg = prop_data.get("deprecation_message", "This property is deprecated")
+                    self.report.add_warning(f"Property '{class_name}.{prop_name}' is deprecated: {msg}", node.lineno)
 
 
 def validate_file(filepath: str):
     report = ValidationReport()
-    report.add_info(f"检查文件: {filepath}")
+    report.add_info(f"Checking file: {filepath}")
     
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -559,53 +559,53 @@ def validate_file(filepath: str):
         validator.visit(tree)
         
     except SyntaxError as e:
-        report.add_error(f"Python 语法错误: {e}", e.lineno)
+        report.add_error(f"Python Syntax Error: {e}", e.lineno)
     except Exception as e:
-        report.add_error(f"分析失败: {e}")
+        report.add_error(f"Analysis failed: {e}")
         
     report.print_report()
 
 def query_api(query: str):
-    print(f"\n查询 API: {query}")
+    print(f"\nQuerying API: {query}")
 
-    # 参数预处理：拒绝包含空格的查询
+    # Argument Preprocessing: Reject queries containing spaces
     if ' ' in query:
-        print("❌ 错误: 查询参数不能包含空格")
-        print("\n正确的使用方式:")
-        print("  - 查询类: unreal.<ClassName>")
-        print("    示例: unreal.Actor, unreal.EditorLevelLibrary")
-        print("  - 查询方法: unreal.<ClassName>.<method_name>")
-        print("    示例: unreal.Actor.set_actor_location")
-        print("  - 查询模块级函数: unreal.<function_name>")
-        print("    示例: unreal.log, unreal.log_warning")
+        print("❌ Error: Query argument cannot contain spaces")
+        print("\nCorrect usage:")
+        print("  - Query Class: unreal.<ClassName>")
+        print("    Example: unreal.Actor, unreal.EditorLevelLibrary")
+        print("  - Query Method: unreal.<ClassName>.<method_name>")
+        print("    Example: unreal.Actor.set_actor_location")
+        print("  - Query Module Function: unreal.<function_name>")
+        print("    Example: unreal.log, unreal.log_warning")
         return
 
-    # 自动添加 "unreal." 前缀（如果查询格式简单且未包含前缀）
+    # Auto add "unreal." prefix (if simple format and prefix missing)
     if not query.startswith('unreal.'):
-        # 检查基本格式有效性
+        # Check basic format validity
         if not query or query.startswith('.') or query.endswith('.') or '..' in query:
-            print("❌ 错误: 查询格式不正确")
-            print("\n正确的格式:")
+            print("❌ Error: Query format incorrect")
+            print("\nCorrect format:")
             print("  - unreal.<name>")
             print("  - unreal.<ClassName>.<member_name>")
             return
-        # 自动添加前缀
+        # Auto add prefix
         query = 'unreal.' + query
-        print(f"自动补全为: {query}")
+        print(f"Auto-completing to: {query}")
 
-    # 去掉 "unreal." 前缀，获取实际的查询内容
+    # Remove "unreal." prefix to get actual query content
     query_without_prefix = query[7:]  # len("unreal.") = 7
 
-    # 格式验证
+    # Format validation
     if not query_without_prefix or query_without_prefix.endswith('.') or '..' in query_without_prefix:
-        print("❌ 错误: 查询格式不正确")
-        print("\n正确的格式:")
+        print("❌ Error: Query format incorrect")
+        print("\nCorrect format:")
         print("  - unreal.<name>")
         print("  - unreal.<ClassName>.<member_name>")
         return
 
     if not unreal:
-        print("错误: 无法加载 mock_unreal 模块，无法查询。")
+        print("Error: Cannot load mock_unreal module, cannot query.")
         return
 
     parts = query_without_prefix.split('.')
@@ -613,15 +613,15 @@ def query_api(query: str):
         class_name = parts[0]
         if hasattr(unreal, class_name):
             cls = getattr(unreal, class_name)
-            print(f"✅ 类 {class_name} 存在")
-            print(f"文档: {cls.__doc__ or '无'}")
+            print(f"✅ Class {class_name} exists")
+            print(f"Doc: {cls.__doc__ or 'None'}")
 
-            # 显示 C++ 元数据
+            # Show C++ Metadata
             if class_name in METADATA:
-                print("\n[C++ 元数据]")
+                print("\n[C++ Metadata]")
                 print(json.dumps(METADATA[class_name], indent=2, ensure_ascii=False))
         else:
-            print(f"❌ 类 {class_name} 不存在")
+            print(f"❌ Class {class_name} does not exist")
 
     elif len(parts) == 2:
         class_name, member_name = parts
@@ -629,31 +629,31 @@ def query_api(query: str):
             cls = getattr(unreal, class_name)
             if hasattr(cls, member_name):
                 member = getattr(cls, member_name)
-                print(f"✅ {class_name}.{member_name} 存在")
-                print(f"文档: {member.__doc__ or '无'}")
+                print(f"✅ {class_name}.{member_name} exists")
+                print(f"Doc: {member.__doc__ or 'None'}")
 
                 # Display C++ metadata for the method if available
                 if class_name in METADATA:
                     methods = METADATA[class_name].get("functions", {})
                     if member_name in methods:
-                        print("\n[C++ 元数据]")
+                        print("\n[C++ Metadata]")
                         print(json.dumps(methods[member_name], indent=2, ensure_ascii=False))
             else:
-                print(f"❌ {class_name}.{member_name} 不存在")
+                print(f"❌ {class_name}.{member_name} does not exist")
         else:
-            print(f"❌ 类 {class_name} 不存在")
+            print(f"❌ Class {class_name} does not exist")
 
 def main():
     global unreal
 
-    parser = argparse.ArgumentParser(description="UE5 Python API 验证器")
-    parser.add_argument("path", nargs="?", help="要验证的脚本路径")
-    parser.add_argument("--query", "-q", help="查询 API 信息")
-    parser.add_argument("--input", "-i", help="指定 unreal.py stub 文件的路径（用于生成 mock 模块）")
+    parser = argparse.ArgumentParser(description="UE5 Python API Validator")
+    parser.add_argument("path", nargs="?", help="Path to the script to validate")
+    parser.add_argument("--query", "-q", help="Query API information")
+    parser.add_argument("--input", "-i", help="Specify path to unreal.py stub file (for generating mock module)")
 
     args = parser.parse_args()
 
-    # 初始化 unreal 模块（如果用户指定了 --input，则使用该路径）
+    # Initialize unreal module (use path if user specified --input)
     unreal = init_unreal_module(args.input)
 
     if args.query:

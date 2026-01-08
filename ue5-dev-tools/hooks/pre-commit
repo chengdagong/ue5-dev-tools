@@ -9,6 +9,7 @@ import json
 import sys
 import io
 import os
+import subprocess
 from pathlib import Path
 
 # Ensure UTF-8 output on all platforms
@@ -18,6 +19,75 @@ if sys.version_info[0] >= 3:
 # Get the git repository root
 git_root = Path(__file__).parent.parent.parent
 plugin_json_path = git_root / "ue5-dev-tools" / ".claude-plugin" / "plugin.json"
+
+# Files that don't require version bumping (auxiliary/meta files)
+AUXILIARY_FILES = {
+    '.gitignore',
+    '.gitattributes',
+    '.editorconfig',
+    '.github',
+    'README.md',
+    'LICENSE',
+    '.vscode',
+    '.idea',
+    '.DS_Store',
+    '*.log',
+    '.env',
+    '.env.local',
+}
+
+def is_auxiliary_file(file_path):
+    """Check if a file is an auxiliary/meta file that doesn't require version bumping"""
+    path_obj = Path(file_path)
+
+    # Check against exact filename matches and directories
+    if path_obj.name in AUXILIARY_FILES or path_obj.name.lstrip('.') in AUXILIARY_FILES:
+        return True
+
+    # Check against pattern matches (e.g., *.log)
+    for pattern in AUXILIARY_FILES:
+        if '*' in pattern:
+            import fnmatch
+            if fnmatch.fnmatch(path_obj.name, pattern):
+                return True
+
+    # Check if any parent directory is in auxiliary files (e.g., .github, .vscode)
+    for part in path_obj.parts:
+        if part in AUXILIARY_FILES:
+            return True
+
+    return False
+
+def get_staged_files():
+    """Get list of staged files in the current commit"""
+    try:
+        # Get the list of staged files using git diff --cached
+        result = subprocess.run(
+            ['git', 'diff', '--cached', '--name-only'],
+            capture_output=True,
+            text=True,
+            cwd=str(git_root)
+        )
+        if result.returncode == 0:
+            return result.stdout.strip().split('\n') if result.stdout.strip() else []
+    except Exception as e:
+        print(f"Warning: Could not get staged files: {e}")
+    return []
+
+def should_bump_version():
+    """Check if version should be bumped based on staged files"""
+    staged_files = get_staged_files()
+
+    if not staged_files:
+        return False
+
+    # Check if there are any non-auxiliary files
+    for file_path in staged_files:
+        if file_path and not is_auxiliary_file(file_path):
+            return True
+
+    # All staged files are auxiliary files
+    return False
 
 def increment_version(version_str):
     """Increment the patch version (x.y.z -> x.y.z+1)"""
@@ -35,6 +105,11 @@ def increment_version(version_str):
         return version_str
 
 def main():
+    # Check if version bump is needed based on staged files
+    if not should_bump_version():
+        print("ℹ Skipping version bump (only auxiliary files changed)")
+        return 0
+
     # Check if plugin.json exists
     if not plugin_json_path.exists():
         print(f"Warning: {plugin_json_path} not found, skipping version increment")

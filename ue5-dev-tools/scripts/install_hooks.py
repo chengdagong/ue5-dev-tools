@@ -4,7 +4,11 @@
 Git Hooks Installation Script (Cross-platform)
 
 This script installs git hooks from the hooks/ directory to .git/hooks/
-Run this after cloning the repository to enable automatic version bumping
+Run this after cloning the repository to enable automatic version bumping.
+
+The pre-commit hook will automatically increment the patch version in plugin.json
+for commits that include non-auxiliary files. Auxiliary files (like .gitignore,
+README.md, .github, etc.) do not trigger version bumping.
 
 Works on Windows, macOS, and Linux
 """

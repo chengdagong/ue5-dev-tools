@@ -1,7 +1,7 @@
 {
     "name": "ue5-dev-tools",
-    "version": "0.2.7",
-    "description": "Comprehensive UE5 Python development toolkit: validate API usage, execute scripts remotely, debug with VSCode, and follow best-practice workflows for UE5 Editor scripting",
+    "version": "0.2.9",
+    "description": "Comprehensive UE5 development toolkit: validate API usage, execute scripts remotely, debug with VSCode, build projects from command line, and follow best-practice workflows for UE5 development",
     "author": {
         "name": "UE5 Dev Tools"
     },
@@ -16,7 +16,12 @@
         "workflow",
         "remote-execution",
         "vscode",
-        "editor-scripting"
+        "editor-scripting",
+        "build",
+        "compile",
+        "package",
+        "uat",
+        "automation"
     ],
     "skills": "./skills/",
     "commands": "./commands/"

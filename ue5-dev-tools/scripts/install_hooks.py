@@ -129,10 +129,10 @@ def backup_existing_hook(target_file):
         backup_file = target_file.with_suffix(target_file.suffix + '.backup')
         try:
             shutil.copy2(target_file, backup_file)
-            print(f"{Colors.YELLOW}⚠ Backed up existing {target_file.name} to {backup_file.name}{Colors.NC}")
+            print(f"{Colors.YELLOW}[WARN] Backed up existing {target_file.name} to {backup_file.name}{Colors.NC}")
             return True
         except Exception as e:
-            print(f"{Colors.YELLOW}⚠ Warning: Could not backup {target_file.name}: {e}{Colors.NC}")
+            print(f"{Colors.YELLOW}[WARN] Warning: Could not backup {target_file.name}: {e}{Colors.NC}")
             return False
     return True
 
@@ -165,7 +165,7 @@ def install_hooks(source_hooks_dir, target_hooks_dir):
         success, method = create_symlink_or_copy(hook_file, target_file)
         if success:
             method_text = f"({method})"
-            print(f"{Colors.GREEN}✓ Installed {hook_name} {method_text}{Colors.NC}")
+            print(f"{Colors.GREEN}[OK] Installed {hook_name} {method_text}{Colors.NC}")
             installed_count += 1
 
     return installed_count

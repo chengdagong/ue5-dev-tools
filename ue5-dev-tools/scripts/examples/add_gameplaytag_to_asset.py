@@ -101,14 +101,14 @@ def add_ability_tag_to_asset(asset_path, tag_name):
                 break
 
         if tag_found:
-            unreal.log(f"  ✓ Successfully added tag '{tag_name}'")
+            unreal.log(f"  [OK] Successfully added tag '{tag_name}'")
             return True
         else:
-            unreal.log_error(f"  ❌ Tag '{tag_name}' not found after save")
+            unreal.log_error(f"  [ERROR] Tag '{tag_name}' not found after save")
             return False
 
     except Exception as e:
-        unreal.log_error(f"  ❌ Exception adding tag to {asset_path}: {str(e)}")
+        unreal.log_error(f"  [ERROR] Exception adding tag to {asset_path}: {str(e)}")
         import traceback
         unreal.log_error(traceback.format_exc())
         return False
@@ -173,7 +173,7 @@ def main():
         for ability_cfg in failed_list:
             unreal.log(f"  - {ability_cfg['name']}: {ability_cfg['path']}")
     else:
-        unreal.log("✓ All Movement Abilities configured successfully!")
+        unreal.log("[OK] All Movement Abilities configured successfully!")
 
     unreal.log("")
     unreal.log("Next steps:")

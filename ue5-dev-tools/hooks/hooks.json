@@ -1,0 +1,17 @@
+{
+    "description": "UE5 Python development workflow hooks",
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Write|Edit",
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": "Check if this tool operation involves a UE5 Python script:\n\n1. Is the file path a Python file (ends with .py)?\n2. Does the content being written/edited contain 'import unreal' statement?\n\nIf BOTH conditions are true, this is a UE5 Python script. Return a systemMessage reminding Claude:\n\n**IMPORTANT: UE5 Python Script Detected**\n\nYou are about to write/edit a UE5 Python script without using the develop-ue5-python skill. This skill provides a critical 6-phase workflow:\n\n1. **Requirements Analysis** - Understand scope and explore project structure\n2. **API Validation** - Use check-api skill to verify APIs before coding\n3. **Formal Script Writing** - Follow error handling and transaction best practices\n4. **Static Validation** - Use validate-script skill (REQUIRED before execution)\n5. **Dynamic Testing** - Test with ue5-python-executor on single asset first\n6. **Iteration** - Fix issues systematically, investigate C++ source if needed\n\nPlease consider using the develop-ue5-python skill to guide your development and ensure proper API validation, testing, and best practices.\n\nIf the file is NOT a UE5 Python script (not .py file or doesn't contain 'import unreal'), return nothing and allow the operation.\n\nTool input: $TOOL_INPUT",
+                        "timeout": 30
+                    }
+                ]
+            }
+        ]
+    }
+}

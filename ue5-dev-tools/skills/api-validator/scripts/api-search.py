@@ -14,23 +14,47 @@ import re
 import sys
 
 
+def find_ue5_project_root(start_dir):
+    """Find UE5 project root by searching for .uproject file upward from start_dir."""
+    current = os.path.abspath(start_dir)
+    while True:
+        # Check if any .uproject file exists in this directory
+        try:
+            for entry in os.listdir(current):
+                if entry.endswith('.uproject'):
+                    return current
+        except OSError:
+            pass
+        parent = os.path.dirname(current)
+        if parent == current:
+            # Reached filesystem root
+            return None
+        current = parent
+
+
 def find_stub_file(input_path=None):
-    """Find the unreal.py stub file."""
+    """Find the unreal.py stub file.
+
+    Search order:
+    1. Explicit --input path if provided
+    2. Search upward from current working directory for UE5 project root
+    """
     if input_path:
         input_path = input_path.strip()
         if os.path.exists(input_path):
             return input_path
         raise FileNotFoundError(f"Stub file not found: {input_path}")
 
-    project_dir = os.environ.get('CLAUDE_PROJECT_DIR')
-    if project_dir:
-        stub_path = os.path.join(project_dir, 'Intermediate', 'PythonStub', 'unreal.py')
+    # Search upward from current working directory for UE5 project root
+    project_root = find_ue5_project_root(os.getcwd())
+    if project_root:
+        stub_path = os.path.join(project_root, 'Intermediate', 'PythonStub', 'unreal.py')
         if os.path.exists(stub_path):
             return stub_path
 
     raise FileNotFoundError(
         "Cannot find unreal.py stub file. "
-        "Use --input to specify path or set CLAUDE_PROJECT_DIR environment variable."
+        "Use --input to specify path, or run from within a UE5 project directory."
     )
 
 

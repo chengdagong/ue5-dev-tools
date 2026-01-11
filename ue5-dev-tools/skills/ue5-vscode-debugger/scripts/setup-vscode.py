@@ -3,7 +3,7 @@
 VSCode Configuration Setup Tool
 
 Automatically generates .vscode/launch.json and .vscode/tasks.json,
-Using correct plugin paths (from CLAUDE_PLUGIN_ROOT).
+Using correct plugin paths by searching upward for ue5-python-executor.
 """
 
 import os
@@ -11,21 +11,85 @@ import sys
 import json
 import argparse
 from pathlib import Path
-from typing import Dict, Any, Optional
-
-# Add dependency check and import from executor's lib
-plugin_root = Path(__file__).parent.parent.parent.parent
-executor_lib = plugin_root / "skills" / "ue5-python-executor" / "lib"
-if not executor_lib.exists():
-    print("ERROR: ue5-python-executor skill not found", file=sys.stderr)
-    print(f"Expected location: {executor_lib}", file=sys.stderr)
-    print("Please ensure ue5-python-executor skill is installed", file=sys.stderr)
-    sys.exit(1)
-sys.path.insert(0, str(executor_lib))
-from ue5_remote import get_plugin_root, get_project_root
+from typing import Dict, Any, Optional, Tuple
 
 
-def create_launch_config(plugin_root: Path) -> Dict[str, Any]:
+def find_skills_root(start_path: Path = None) -> Optional[Path]:
+    """
+    Find the skills root directory by searching upward for a directory
+    that contains 'ue5-python-executor' as a subdirectory.
+
+    Args:
+        start_path: Starting path for search (defaults to script location)
+
+    Returns:
+        Path to the directory containing ue5-python-executor, or None if not found
+    """
+    if start_path is None:
+        start_path = Path(__file__).resolve().parent
+
+    current = start_path
+    # Search up to 10 levels up
+    for _ in range(10):
+        executor_path = current / "ue5-python-executor"
+        if executor_path.exists() and executor_path.is_dir():
+            # Verify it's the right directory by checking for scripts/remote-execute.py
+            if (executor_path / "scripts" / "remote-execute.py").exists():
+                return current
+
+        parent = current.parent
+        if parent == current:  # Reached root
+            break
+        current = parent
+
+    return None
+
+
+def find_executor_paths(start_path: Path = None) -> Tuple[Path, Path]:
+    """
+    Find paths to ue5-python-executor and ue5-vscode-debugger skills.
+
+    Args:
+        start_path: Starting path for search
+
+    Returns:
+        Tuple of (executor_skill_path, debugger_skill_path)
+
+    Raises:
+        FileNotFoundError: If skills cannot be found
+    """
+    skills_root = find_skills_root(start_path)
+
+    if skills_root is None:
+        raise FileNotFoundError(
+            "Cannot find ue5-python-executor skill. "
+            "Searched upward from: " + str(start_path or Path(__file__).parent)
+        )
+
+    executor_skill = skills_root / "ue5-python-executor"
+    debugger_skill = skills_root / "ue5-vscode-debugger"
+
+    # Validate executor exists
+    remote_exec = executor_skill / "scripts" / "remote-execute.py"
+    if not remote_exec.exists():
+        raise FileNotFoundError(f"Cannot find remote-execute.py at: {remote_exec}")
+
+    return executor_skill, debugger_skill
+
+
+def get_project_root() -> Path:
+    """
+    Get project root from CLAUDE_PROJECT_DIR or current working directory.
+
+    Returns:
+        Path to project root directory
+    """
+    if "CLAUDE_PROJECT_DIR" in os.environ:
+        return Path(os.environ["CLAUDE_PROJECT_DIR"])
+    return Path.cwd()
+
+
+def create_launch_config() -> Dict[str, Any]:
     """Create launch.json configuration"""
     return {
         "version": "0.2.1",
@@ -67,12 +131,9 @@ def create_launch_config(plugin_root: Path) -> Dict[str, Any]:
     }
 
 
-def create_tasks_config(plugin_root: Path) -> Dict[str, Any]:
+def create_tasks_config(executor_skill: Path, debugger_skill: Path) -> Dict[str, Any]:
     """Create tasks.json configuration"""
-    # Calculate absolute paths for scripts (referencing executor and debugger skills)
-    executor_skill = plugin_root / "skills" / "ue5-python-executor"
     remote_execute_script = executor_skill / "scripts" / "remote-execute.py"
-    debugger_skill = plugin_root / "skills" / "ue5-vscode-debugger"
     start_debug_script = debugger_skill / "scripts" / "start_debug_server.py"
 
     return {
@@ -86,7 +147,6 @@ def create_tasks_config(plugin_root: Path) -> Dict[str, Any]:
                     str(remote_execute_script),
                     "--file",
                     str(start_debug_script)
-                    # --project-name will be automatically inferred from CLAUDE_PROJECT_DIR
                 ],
                 "isBackground": False,
                 "presentation": {
@@ -118,7 +178,6 @@ def create_tasks_config(plugin_root: Path) -> Dict[str, Any]:
                     "--detached",
                     "--wait",
                     "1"
-                    # --project-name will be automatically inferred from CLAUDE_PROJECT_DIR
                 ],
                 "isBackground": True,
                 "presentation": {
@@ -210,13 +269,14 @@ def merge_json_file(file_path: Path, new_config: Dict[str, Any], key: str) -> bo
     return True
 
 
-def setup_vscode_config(project_root: Path, plugin_root: Path, force: bool = False) -> bool:
+def setup_vscode_config(project_root: Path, executor_skill: Path, debugger_skill: Path, force: bool = False) -> bool:
     """
     Setup VSCode Configuration
 
     Args:
         project_root: Project Root
-        plugin_root: Plugin Root
+        executor_skill: Path to ue5-python-executor skill
+        debugger_skill: Path to ue5-vscode-debugger skill
         force: Whether to force overwrite existing configuration
 
     Returns:
@@ -227,12 +287,13 @@ def setup_vscode_config(project_root: Path, plugin_root: Path, force: bool = Fal
     tasks_json = vscode_dir / "tasks.json"
 
     print(f"Project Root: {project_root}")
-    print(f"Plugin Root: {plugin_root}")
+    print(f"Executor Skill: {executor_skill}")
+    print(f"Debugger Skill: {debugger_skill}")
     print()
 
     # Create configurations
-    launch_config = create_launch_config(plugin_root)
-    tasks_config = create_tasks_config(plugin_root)
+    launch_config = create_launch_config()
+    tasks_config = create_tasks_config(executor_skill, debugger_skill)
 
     # Process launch.json
     print("Processing launch.json...")
@@ -285,7 +346,6 @@ Examples:
 
 Environment Variables:
   CLAUDE_PROJECT_DIR - Project root directory injected by Claude Code
-  CLAUDE_PLUGIN_ROOT - Plugin root directory injected by Claude Code
         """
     )
 
@@ -304,21 +364,20 @@ Environment Variables:
 
     args = parser.parse_args()
 
-    # Get paths
+    # Get project root
     project_root = args.project if args.project else get_project_root()
-    plugin_root = get_plugin_root()
 
-    # Validate plugin path (verify dependent executor skill)
-    remote_exec_script = plugin_root / "skills" / "ue5-python-executor" / "scripts" / "remote-execute.py"
-    if not remote_exec_script.exists():
-        print(f"Error: Cannot find ue5-python-executor skill script: {remote_exec_script}", file=sys.stderr)
-        print(f"Plugin Root: {plugin_root}", file=sys.stderr)
-        print("Please ensure ue5-python-executor skill is installed", file=sys.stderr)
+    # Find skill paths by searching upward
+    try:
+        executor_skill, debugger_skill = find_executor_paths()
+        print(f"Found skills root: {executor_skill.parent}")
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Setup configuration
     try:
-        setup_vscode_config(project_root, plugin_root, args.force)
+        setup_vscode_config(project_root, executor_skill, debugger_skill, args.force)
         sys.exit(0)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

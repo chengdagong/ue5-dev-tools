@@ -102,6 +102,9 @@ def check_remote_execution(ini_path: Path, auto_fix: bool = False) -> Tuple[bool
     """
     Check and optionally fix Remote Execution settings in DefaultEngine.ini.
 
+    Uses a conservative approach that preserves original file formatting by only
+    appending missing settings rather than rewriting the entire file.
+
     Args:
         ini_path: Path to DefaultEngine.ini
         auto_fix: Whether to automatically fix issues
@@ -109,80 +112,144 @@ def check_remote_execution(ini_path: Path, auto_fix: bool = False) -> Tuple[bool
     Returns:
         (enabled, modified, changes_list)
     """
-    section = "/Script/PythonScriptPlugin.PythonScriptPluginSettings"
+    section = "[/Script/PythonScriptPlugin.PythonScriptPluginSettings]"
+    required_settings = {
+        "bRemoteExecution": "True",
+        "bDeveloperMode": "True",
+        "RemoteExecutionMulticastBindAddress": "0.0.0.0"
+    }
 
     # If file doesn't exist
     if not ini_path.exists():
         if auto_fix:
             ini_path.parent.mkdir(parents=True, exist_ok=True)
-            config = configparser.ConfigParser()
-            config.add_section(section)
-            config.set(section, "bRemoteExecution", "True")
-            config.set(section, "bDeveloperMode", "True")
-            config.set(section, "RemoteExecutionMulticastBindAddress", "0.0.0.0")
-
             try:
+                lines = [
+                    "\n",
+                    f"{section}\n",
+                ]
+                for key, value in required_settings.items():
+                    lines.append(f"{key}={value}\n")
+
                 with open(ini_path, 'w', encoding='utf-8') as f:
-                    config.write(f)
+                    f.writelines(lines)
+
                 return True, True, [
                     "Created DefaultEngine.ini",
-                    "Set bRemoteExecution=True",
-                    "Set bDeveloperMode=True",
-                    "Set RemoteExecutionMulticastBindAddress=0.0.0.0"
+                    f"Set bRemoteExecution=True",
+                    f"Set bDeveloperMode=True",
+                    f"Set RemoteExecutionMulticastBindAddress=0.0.0.0"
                 ]
             except Exception as e:
                 return False, False, [f"Write Failed: {e}"]
         else:
             return False, False, ["DefaultEngine.ini does not exist"]
 
-    # Read existing config
-    config = configparser.ConfigParser(strict=False)
+    # Read existing file content
     try:
-        config.read(ini_path, encoding='utf-8')
+        with open(ini_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            lines = content.splitlines(keepends=True)
     except Exception as e:
         return False, False, [f"Read Failed: {e}"]
 
     changes = []
     needs_fix = False
+    missing_settings = {}
 
-    # Check section
-    if section not in config:
-        if auto_fix:
-            config.add_section(section)
-            changes.append(f"Created section [{section}]")
-            needs_fix = True
-        else:
-            return False, False, [f"Missing section [{section}]"]
+    # Check if section exists (case-insensitive for section name)
+    section_lower = section.lower()
+    section_exists = any(section_lower in line.lower() for line in lines)
 
-    # Check bRemoteExecution
-    remote_exec = config.get(section, "bRemoteExecution", fallback=None)
-    if remote_exec != "True":
-        if auto_fix:
-            config.set(section, "bRemoteExecution", "True")
-            # Usually strict requirement for multicast discovery
-            config.set(section, "RemoteExecutionMulticastBindAddress", "0.0.0.0")
-            changes.append(f"Set bRemoteExecution=True (was: {remote_exec})")
-            needs_fix = True
-        else:
-            needs_fix = True
-            changes.append(f"bRemoteExecution needs True (is: {remote_exec})")
+    if not section_exists:
+        missing_settings = required_settings.copy()
+        needs_fix = True
+        changes.append(f"Missing section {section}")
+    else:
+        # Check each required setting (case-insensitive key matching)
+        content_lower = content.lower()
+        for key, expected_value in required_settings.items():
+            key_lower = key.lower()
+            # Look for key=value pattern
+            found = False
+            for line in lines:
+                line_stripped = line.strip().lower()
+                if line_stripped.startswith(key_lower) and '=' in line_stripped:
+                    # Extract value
+                    _, _, value = line.partition('=')
+                    value = value.strip()
+                    if value.lower() == expected_value.lower():
+                        found = True
+                    else:
+                        found = False
+                        changes.append(f"{key} needs {expected_value} (is: {value})")
+                    break
 
-    # Check bDeveloperMode
-    dev_mode = config.get(section, "bDeveloperMode", fallback=None)
-    if dev_mode != "True":
-        if auto_fix:
-            config.set(section, "bDeveloperMode", "True")
-            changes.append(f"Set bDeveloperMode=True (was: {dev_mode})")
-            needs_fix = True
-        else:
-            needs_fix = True
-            changes.append(f"bDeveloperMode needs True (is: {dev_mode})")
+            if not found:
+                missing_settings[key] = expected_value
+                needs_fix = True
+                if key not in [c.split()[0] for c in changes]:
+                    changes.append(f"{key} needs {expected_value} (is: None)")
 
-    # Write back
-    if auto_fix and needs_fix:
+    # Auto-fix: append missing settings
+    if auto_fix and (missing_settings or needs_fix):
         try:
+            with open(ini_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # If section doesn't exist, append it at the end
+            if not section_exists:
+                if not content.endswith('\n'):
+                    content += '\n'
+                content += f"\n{section}\n"
+                for key, value in required_settings.items():
+                    content += f"{key}={value}\n"
+                changes = [f"Added section {section}"]
+                for key, value in required_settings.items():
+                    changes.append(f"Set {key}={value}")
+            else:
+                # Find section and append missing settings after it
+                lines = content.splitlines(keepends=True)
+                new_lines = []
+                in_target_section = False
+                settings_added = False
+
+                for i, line in enumerate(lines):
+                    new_lines.append(line)
+
+                    # Check if we're entering the target section
+                    if section_lower in line.lower():
+                        in_target_section = True
+                        continue
+
+                    # Check if we're leaving the section (next section starts)
+                    if in_target_section and line.strip().startswith('[') and section_lower not in line.lower():
+                        # Insert missing settings before this new section
+                        if missing_settings and not settings_added:
+                            for key, value in missing_settings.items():
+                                new_lines.insert(-1, f"{key}={value}\n")
+                            settings_added = True
+                        in_target_section = False
+
+                # If we're still in target section at end of file, append there
+                if in_target_section and missing_settings and not settings_added:
+                    # Ensure there's a newline before adding
+                    if new_lines and not new_lines[-1].endswith('\n'):
+                        new_lines[-1] += '\n'
+                    for key, value in missing_settings.items():
+                        new_lines.append(f"{key}={value}\n")
+                    settings_added = True
+
+                content = ''.join(new_lines)
+                changes = []
+                for key, value in missing_settings.items():
+                    changes.append(f"Set {key}={value} (was: None)")
+
             with open(ini_path, 'w', encoding='utf-8') as f:
-                config.write(f)
+                f.write(content)
+
+            needs_fix = False
+
         except Exception as e:
             return False, False, [f"Write Failed: {e}"]
 
@@ -190,7 +257,7 @@ def check_remote_execution(ini_path: Path, auto_fix: bool = False) -> Tuple[bool
         changes = ["Remote execution config correct"]
 
     enabled = not needs_fix or auto_fix
-    modified = auto_fix and needs_fix
+    modified = auto_fix and bool(missing_settings)
 
     return enabled, modified, changes
 

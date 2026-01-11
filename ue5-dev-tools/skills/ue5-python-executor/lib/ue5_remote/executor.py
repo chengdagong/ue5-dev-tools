@@ -171,7 +171,7 @@ class UE5RemoteExecution:
             self._send_message(self.mcast_sock, ping_msg)
 
             # 3. Collect all responses
-            all_pongs = self._receive_all_messages(self.mcast_sock, "ping", timeout=1.0)
+            all_pongs = self._receive_all_messages(self.mcast_sock, "ping", timeout=5.0)
 
             # 4. Log all discovered instances
             if not all_pongs:

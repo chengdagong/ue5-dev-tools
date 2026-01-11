@@ -67,6 +67,7 @@ def find_stub_file(input_path=None):
     Search order:
     1. Explicit --input path if provided
     2. Search upward from current working directory for UE5 project root
+    3. Search upward from script's own directory for UE5 project root
     """
     if input_path:
         input_path = input_path.strip()
@@ -76,6 +77,14 @@ def find_stub_file(input_path=None):
 
     # Search upward from current working directory for UE5 project root
     project_root = find_ue5_project_root(os.getcwd())
+    if project_root:
+        stub_path = os.path.join(project_root, 'Intermediate', 'PythonStub', 'unreal.py')
+        if os.path.exists(stub_path):
+            return stub_path
+
+    # Search upward from script's own directory for UE5 project root
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = find_ue5_project_root(script_dir)
     if project_root:
         stub_path = os.path.join(project_root, 'Intermediate', 'PythonStub', 'unreal.py')
         if os.path.exists(stub_path):

@@ -166,6 +166,48 @@ def find_windows_by_pid(pid: int) -> list[tuple[int, str]]:
     return windows
 
 
+def find_uproject_file(start_dir: str | None = None) -> str | None:
+    """
+    Find .uproject file by searching upward from start_dir.
+
+    Args:
+        start_dir: Starting directory (defaults to cwd)
+
+    Returns:
+        Path to .uproject file or None if not found
+    """
+    from pathlib import Path
+
+    # Try to use ue5_utils if available
+    try:
+        import sys
+        lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib")
+        if lib_path not in sys.path:
+            sys.path.insert(0, lib_path)
+        from ue5_utils import find_ue5_project_root  # type: ignore  # noqa: E402
+
+        project_root = find_ue5_project_root(Path(start_dir) if start_dir else None)
+        if project_root:
+            uprojects = list(project_root.glob("*.uproject"))
+            if uprojects:
+                return str(uprojects[0])
+    except ImportError:
+        pass
+
+    # Fallback: manual search
+    current = Path(start_dir or os.getcwd()).resolve()
+
+    while True:
+        uprojects = list(current.glob("*.uproject"))
+        if uprojects:
+            return str(uprojects[0])
+
+        parent = current.parent
+        if parent == current:
+            return None
+        current = parent
+
+
 def run_game_and_get_hwnd(
     project_path: str | None = None,
     ue_root: str = r"C:\Program Files\Epic Games\UE_5.7",
@@ -174,25 +216,31 @@ def run_game_and_get_hwnd(
     window_y: int | None = None,
     width: int = 1280,
     height: int = 720,
+    level: str | None = None,
 ) -> tuple[int, str, subprocess.Popen] | None:
     """
     Launch game and get window handle
 
     Args:
-        project_path: Path to .uproject file
+        project_path: Path to .uproject file (auto-detected if None)
         ue_root: UE engine root directory
         timeout: Timeout waiting for window to appear (seconds)
         window_x: Window initial X coordinate (None = offscreen)
         window_y: Window initial Y coordinate (None = 0)
         width: Game window width in pixels
         height: Game window height in pixels
+        level: Map/level to load (e.g., "/Game/Maps/MainMenu" or just "MainMenu")
 
     Returns:
         (hwnd, title, process) or None
     """
     if project_path is None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_path = os.path.join(script_dir, "testflight.uproject")
+        project_path = find_uproject_file()
+        if project_path:
+            print(f"Auto-detected project: {project_path}")
+        else:
+            print("Error: No .uproject file found. Use -p to specify the path.")
+            return None
 
     game_exe = os.path.join(ue_root, "Engine", "Binaries", "Win64", "UnrealEditor-Cmd.exe")
 
@@ -206,6 +254,7 @@ def run_game_and_get_hwnd(
 
     screen_width = user32.GetSystemMetrics(0)
 
+    # Build command
     cmd = [
         game_exe,
         project_path,
@@ -219,6 +268,13 @@ def run_game_and_get_hwnd(
         f"-WinX={window_x if window_x is not None else screen_width}",
         f"-WinY={window_y if window_y is not None else 0}",
     ]
+
+    # Add level/map parameter if specified (using -MapOverride)
+    if level:
+        # Ensure proper format: /Game/Maps/LevelName or just LevelName
+        if not level.startswith("/"):
+            level = f"/Game/Maps/{level}"
+        cmd.extend(["-MapOverride", level])
 
     prev_foreground = user32.GetForegroundWindow()
     process = subprocess.Popen(cmd)
@@ -284,13 +340,15 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Launch UE game and capture screenshots in background")
+    parser.add_argument("-p", "--project", type=str, default=None, help="Path to .uproject file")
+    parser.add_argument("-l", "--level", type=str, default=None, help="Level/map to load (e.g. '/Game/Maps/MainMenu' or 'MainMenu')")
     parser.add_argument("-n", "--count", type=int, default=3, help="Number of screenshots")
     parser.add_argument("-i", "--interval", type=float, default=1.0, help="Interval between screenshots (seconds)")
     parser.add_argument("-o", "--output", type=str, default="screenshot", help="Output filename prefix")
     parser.add_argument("-r", "--resolution", type=str, default="1280x720", help="Game resolution (e.g. 1920x1080)")
     parser.add_argument("--ue-root", type=str, default=r"C:\Program Files\Epic Games\UE_5.7")
-    parser.add_argument("--timeout", type=int, default=60, help="Window wait timeout (seconds)")
-    parser.add_argument("--load-timeout", type=int, default=120, help="Load wait timeout (seconds)")
+    parser.add_argument("--timeout", type=int, default=20, help="Window wait timeout (seconds). Default to 20s. Should be enough.")
+    parser.add_argument("--load-timeout", type=int, default=20, help="Load wait timeout (seconds). Default to 20s. Should be enough.")
     parser.add_argument("--wait", action="store_true", help="Wait for user input before closing game")
 
     args = parser.parse_args()
@@ -301,7 +359,14 @@ def main():
         print(f"Error: {e}")
         return 1
 
-    result = run_game_and_get_hwnd(ue_root=args.ue_root, timeout=args.timeout, width=width, height=height)
+    result = run_game_and_get_hwnd(
+        project_path=args.project,
+        ue_root=args.ue_root,
+        timeout=args.timeout,
+        width=width,
+        height=height,
+        level=args.level,
+    )
     if not result:
         print("Launch failed")
         return 1

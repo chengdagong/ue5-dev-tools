@@ -271,9 +271,13 @@ def run_game_and_get_hwnd(
 
     # Add level/map parameter if specified (using -MapOverride)
     if level:
-        # Ensure proper format: /Game/Maps/LevelName or just LevelName
-        if not level.startswith("/"):
-            level = f"/Game/Maps/{level}"
+        # Validate that level contains only the name, no path characters
+        level = level.strip().strip('"\'')  # Remove quotes if any
+
+        if '/' in level or '\\' in level or '.' in level:
+            print("Error: Level parameter must be a name only (e.g., 'PyramidLevel', not '/Game/Maps/PyramidLevel')")
+            return None
+
         cmd.extend(["-MapOverride", level])
 
     prev_foreground = user32.GetForegroundWindow()
@@ -340,8 +344,8 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Launch UE game and capture screenshots in background")
-    parser.add_argument("-p", "--project", type=str, default=None, help="Path to .uproject file")
-    parser.add_argument("-l", "--level", type=str, default=None, help="Level/map to load (e.g. '/Game/Maps/MainMenu' or 'MainMenu')")
+    parser.add_argument("-p", "--project", type=str, required=True, help="Path to .uproject file")
+    parser.add_argument("-l", "--level", type=str, required=True, help="Level/map name only, without path (e.g., 'PyramidLevel'). Do not include '/Game/Maps/' or any path separators.")
     parser.add_argument("-n", "--count", type=int, default=3, help="Number of screenshots")
     parser.add_argument("-i", "--interval", type=float, default=1.0, help="Interval between screenshots (seconds)")
     parser.add_argument("-o", "--output", type=str, default="screenshot", help="Output filename prefix")

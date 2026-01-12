@@ -41,24 +41,14 @@ import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
+# Add ue5_utils to path
+_ue5_utils_path = Path(__file__).parent.parent.parent / "ue5-dev-kit" / "lib"
+if str(_ue5_utils_path) not in sys.path:
+    sys.path.insert(0, str(_ue5_utils_path))
 
-def find_ue5_project_root(start_dir):
-    """Find UE5 project root by searching for .uproject file upward from start_dir."""
-    current = os.path.abspath(start_dir)
-    while True:
-        # Check if any .uproject file exists in this directory
-        try:
-            for entry in os.listdir(current):
-                if entry.endswith('.uproject'):
-                    return current
-        except OSError:
-            pass
-        parent = os.path.dirname(current)
-        if parent == current:
-            # Reached filesystem root
-            return None
-        current = parent
+from ue5_utils import find_ue5_project_root
 
 
 def find_stub_file(input_path=None):
@@ -76,19 +66,19 @@ def find_stub_file(input_path=None):
         raise FileNotFoundError(f"Stub file not found: {input_path}")
 
     # Search upward from current working directory for UE5 project root
-    project_root = find_ue5_project_root(os.getcwd())
+    project_root = find_ue5_project_root(Path.cwd())
     if project_root:
-        stub_path = os.path.join(project_root, 'Intermediate', 'PythonStub', 'unreal.py')
-        if os.path.exists(stub_path):
-            return stub_path
+        stub_path = project_root / 'Intermediate' / 'PythonStub' / 'unreal.py'
+        if stub_path.exists():
+            return str(stub_path)
 
     # Search upward from script's own directory for UE5 project root
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = Path(__file__).parent.resolve()
     project_root = find_ue5_project_root(script_dir)
     if project_root:
-        stub_path = os.path.join(project_root, 'Intermediate', 'PythonStub', 'unreal.py')
-        if os.path.exists(stub_path):
-            return stub_path
+        stub_path = project_root / 'Intermediate' / 'PythonStub' / 'unreal.py'
+        if stub_path.exists():
+            return str(stub_path)
 
     raise FileNotFoundError(
         "Cannot find unreal.py stub file. "

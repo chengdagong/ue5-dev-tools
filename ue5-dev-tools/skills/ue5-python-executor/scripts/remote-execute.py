@@ -37,10 +37,15 @@ import time
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
-# Add lib directory to Python path
+# Add lib directories to Python path
 lib_path = Path(__file__).parent.parent / "lib"
 sys.path.insert(0, str(lib_path))
-from ue5_remote import UE5RemoteExecution, get_default_project_name
+
+ue5_utils_path = Path(__file__).parent.parent.parent / "ue5-dev-kit" / "lib"
+sys.path.insert(0, str(ue5_utils_path))
+
+from ue5_remote import UE5RemoteExecution
+from ue5_utils import find_project_name
 
 # Configure logging
 logging.basicConfig(
@@ -166,8 +171,8 @@ Environment Variables:
     if not args.code and not args.file:
         parser.error("Either --code or --file must be specified")
 
-    # Determine project name (Priority: CLI args > Auto-detect env var)
-    project_name = args.project_name if args.project_name else get_default_project_name()
+    # Determine project name (Priority: CLI args > Auto-detect from filesystem)
+    project_name = args.project_name if args.project_name else find_project_name()
 
     if not args.project_path and not project_name:
         parser.error(
@@ -224,13 +229,14 @@ Environment Variables:
                      if candidates:
                          launch_project_path = candidates[0]
         elif project_name:
-             # Try to guess project path based on CLAUDE_PROJECT_DIR if available
-             from ue5_remote.utils import get_project_root
-             project_root = get_project_root()
-             # Look for .uproject in root
-             candidates = list(project_root.glob("*.uproject"))
-             if candidates:
-                 launch_project_path = candidates[0]
+             # Try to find project root from filesystem
+             from ue5_utils import find_ue5_project_root
+             project_root = find_ue5_project_root()
+             if project_root:
+                 # Look for .uproject in root
+                 candidates = list(project_root.glob("*.uproject"))
+                 if candidates:
+                     launch_project_path = candidates[0]
         
         if not launch_project_path or not project_root:
              logger.error("Cannot auto-launch: Project path/root not specified and could not be inferred.")
@@ -258,7 +264,7 @@ Environment Variables:
              logger.info("Configuration is correct.")
 
         # Find Editor
-        from ue5_remote.utils import find_ue5_editor
+        from ue5_utils import find_ue5_editor
         editor_path = find_ue5_editor()
         
         if not editor_path:

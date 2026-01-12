@@ -6,87 +6,18 @@ Automatically generates .vscode/launch.json and .vscode/tasks.json,
 Using correct plugin paths by searching upward for ue5-python-executor.
 """
 
-import os
 import sys
 import json
 import argparse
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any
 
+# Add ue5_utils to path
+_ue5_utils_path = Path(__file__).parent.parent.parent / "ue5-dev-kit" / "lib"
+if str(_ue5_utils_path) not in sys.path:
+    sys.path.insert(0, str(_ue5_utils_path))
 
-def find_skills_root(start_path: Path = None) -> Optional[Path]:
-    """
-    Find the skills root directory by searching upward for a directory
-    that contains 'ue5-python-executor' as a subdirectory.
-
-    Args:
-        start_path: Starting path for search (defaults to script location)
-
-    Returns:
-        Path to the directory containing ue5-python-executor, or None if not found
-    """
-    if start_path is None:
-        start_path = Path(__file__).resolve().parent
-
-    current = start_path
-    # Search up to 10 levels up
-    for _ in range(10):
-        executor_path = current / "ue5-python-executor"
-        if executor_path.exists() and executor_path.is_dir():
-            # Verify it's the right directory by checking for scripts/remote-execute.py
-            if (executor_path / "scripts" / "remote-execute.py").exists():
-                return current
-
-        parent = current.parent
-        if parent == current:  # Reached root
-            break
-        current = parent
-
-    return None
-
-
-def find_executor_paths(start_path: Path = None) -> Tuple[Path, Path]:
-    """
-    Find paths to ue5-python-executor and ue5-vscode-debugger skills.
-
-    Args:
-        start_path: Starting path for search
-
-    Returns:
-        Tuple of (executor_skill_path, debugger_skill_path)
-
-    Raises:
-        FileNotFoundError: If skills cannot be found
-    """
-    skills_root = find_skills_root(start_path)
-
-    if skills_root is None:
-        raise FileNotFoundError(
-            "Cannot find ue5-python-executor skill. "
-            "Searched upward from: " + str(start_path or Path(__file__).parent)
-        )
-
-    executor_skill = skills_root / "ue5-python-executor"
-    debugger_skill = skills_root / "ue5-vscode-debugger"
-
-    # Validate executor exists
-    remote_exec = executor_skill / "scripts" / "remote-execute.py"
-    if not remote_exec.exists():
-        raise FileNotFoundError(f"Cannot find remote-execute.py at: {remote_exec}")
-
-    return executor_skill, debugger_skill
-
-
-def get_project_root() -> Path:
-    """
-    Get project root from CLAUDE_PROJECT_DIR or current working directory.
-
-    Returns:
-        Path to project root directory
-    """
-    if "CLAUDE_PROJECT_DIR" in os.environ:
-        return Path(os.environ["CLAUDE_PROJECT_DIR"])
-    return Path.cwd()
+from ue5_utils import find_ue5_project_root, find_skill_path
 
 
 def create_launch_config() -> Dict[str, Any]:
@@ -364,16 +295,30 @@ Environment Variables:
 
     args = parser.parse_args()
 
-    # Get project root
-    project_root = args.project if args.project else get_project_root()
+    # Get project root (from args or find UE5 project root)
+    project_root = args.project if args.project else find_ue5_project_root()
+    if project_root is None:
+        project_root = Path.cwd()
 
-    # Find skill paths by searching upward
-    try:
-        executor_skill, debugger_skill = find_executor_paths()
-        print(f"Found skills root: {executor_skill.parent}")
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
+    # Find skill paths using ue5_utils
+    executor_skill = find_skill_path("ue5-python-executor")
+    debugger_skill = find_skill_path("ue5-vscode-debugger")
+
+    if executor_skill is None:
+        print("Error: Cannot find ue5-python-executor skill.", file=sys.stderr)
         sys.exit(1)
+
+    if debugger_skill is None:
+        print("Error: Cannot find ue5-vscode-debugger skill.", file=sys.stderr)
+        sys.exit(1)
+
+    # Verify remote-execute.py exists
+    remote_exec = executor_skill / "scripts" / "remote-execute.py"
+    if not remote_exec.exists():
+        print(f"Error: Cannot find remote-execute.py at: {remote_exec}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Found skills root: {executor_skill.parent}")
 
     # Setup configuration
     try:

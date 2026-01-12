@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
 
 try:
-    from .utils import get_default_project_path
+    from .utils import find_ue5_project_root
 except ImportError:
     # Fallback for direct execution
-    from utils import get_default_project_path
+    from utils import find_ue5_project_root
 
 def find_uproject(project_root: Path) -> Optional[Path]:
     """
@@ -388,7 +388,7 @@ Examples:
 
     args = parser.parse_args()
 
-    project_path = args.project if args.project else get_default_project_path()
+    project_path = args.project if args.project else find_ue5_project_root()
     auto_fix = args.auto_fix and not args.check_only
 
     result = run_config_check(project_path, auto_fix)

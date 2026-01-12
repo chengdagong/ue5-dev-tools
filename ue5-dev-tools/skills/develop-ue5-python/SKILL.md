@@ -1,6 +1,9 @@
 ---
 name: develop-ue5-python
 description: Comprehensive guide for developing UE5 Editor Python scripts with proper workflow and best practices. Use when the user wants to (1) write a UE5 Python script, (2) mentions writing a script in a UE5 project context, or (3) has a requirement that Claude identifies can be fulfilled by a UE5 Python script (e.g., batch processing game assets, automating editor tasks).
+hooks:
+  PreToolUse:
+    - python ${CLAUDE_SKILL_ROOT}/hooks/check_transaction.py
 ---
 # UE5 Python Script Development Guide
 
@@ -20,7 +23,6 @@ Follow this 6-phase workflow when developing UE5 Python scripts:
 
 #### b) Project Structure Exploration
 
-- Refer to [example scripts](./examples/) for reference implementations
 - Search for existing similar scripts in the project
 - Understand asset organization and naming conventions
 - Check for existing utility functions or helper modules
@@ -42,13 +44,13 @@ Analysis:
 
 **Both steps required:**
 
-#### a) Use check-api Skill
+#### a) Use search-api Skill
 
 Before writing code, verify APIs exist and understand their usage:
 
 ```bash
 # Query class definitions
-Use check-api skill to query:
+Use search-api skill to query:
 - unreal.GameplayAbility
 - unreal.EditorAssetLibrary
 - unreal.AnimMontage
@@ -60,7 +62,7 @@ Verify:
 - Available methods and properties (from class definition output)
 - Return types from docstrings
 
-**Note**: check-api supports class and module-level function queries only. To check a method, query the class and look for the method in the output.
+**Note**: search-api supports fuzzy search, exact class queries, and module-level function queries. To check a method, query the class and look for the method in the output, or use fuzzy search with method name.
 
 #### b) Write Exploratory Scripts
 
@@ -165,13 +167,13 @@ for path, error in results["failed"]:
 
 ### Phase 4: Validation and Testing
 
-#### a) API Verification with check-api
+#### a) API Verification with search-api
 
 Before testing, verify key APIs used in your script:
 
 ```bash
 # Query classes used in your script
-Use check-api skill to verify:
+Use search-api skill to verify:
 - Main classes your script depends on
 - Module-level functions like unreal.log
 ```
@@ -337,12 +339,12 @@ manager = unreal.GameplayTagManager.get()  # AttributeError: no such class
 
 **Detection:**
 
-- check-api will show "No match found" for non-existent classes
+- search-api will show "No match found" for non-existent classes
 - Runtime AttributeError when trying to use
 
 **Solutions:**
 
-1. Use check-api to verify class exists
+1. Use search-api to verify class exists
 2. Check if there's a Python alternative API
 3. Use Blueprint Function Library approach (expose via C++)
 4. Inform user the feature isn't available in Python
@@ -374,7 +376,7 @@ tag = unreal.GameplayTagsManager.request_gameplay_tag(unreal.Name("Ability.Melee
 
 **Solution:**
 
-1. Use check-api to find factory methods
+1. Use search-api to find factory methods
 2. Search C++ source for `static` factory methods
 3. Create custom C++ utility class if needed
 
@@ -487,18 +489,21 @@ void PrivateMethod();
 
 This skill orchestrates the following supporting skills:
 
-### check-api (from api-validator skill)
+### search-api (from ue5-api-expert skill)
 
 **When to use:** Phase 2 and Phase 5
 
 - Query class definitions before writing code
 - Verify classes exist and see their available methods
+- Fuzzy search to find relevant APIs
 - Re-check when encountering API errors
 
-**Limitations:**
+**Features:**
 
-- Only supports class and module-level function queries
-- To check a method, query the parent class
+- Fuzzy search: `/search-api actor` - word-boundary matching
+- Exact class: `/search-api unreal.Actor` - full class definition
+- Chained search: `/search-api inputmapping context` - multiple terms
+- Filter flags: `-c` (class), `-m` (method), `-e` (enum)
 
 ### ue5-python-executor
 
@@ -520,8 +525,8 @@ This skill orchestrates the following supporting skills:
 
 1. **Always verify APIs before using**
 
-   - Phase 2a: check-api before writing
-   - Phase 4a: verify key classes with check-api
+   - Phase 2a: search-api before writing
+   - Phase 4a: verify key classes with search-api
 2. **Progressive testing approach**
 
    - Exploratory scripts first (Phase 2b)

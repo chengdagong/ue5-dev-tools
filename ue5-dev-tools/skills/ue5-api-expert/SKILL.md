@@ -23,6 +23,7 @@ python scripts/api-search.py unreal.InputMappingContext
 
 # Query a specific member
 python scripts/api-search.py unreal.Actor.on_destroyed
+python scripts/api-search.py unreal.GameplayTag.import_text
 
 # Wildcard member search
 python scripts/api-search.py unreal.Actor.*location*

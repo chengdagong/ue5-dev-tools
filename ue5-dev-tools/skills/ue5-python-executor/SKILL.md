@@ -1,9 +1,12 @@
 ---
 name: ue5-python-executor
-description: Execute Python scripts in running UE5 editor instances using remote execution protocol. Use when users need to (1) run UE5.x python scripts (2) enable UE5 Python plugin and remote execution, (3) execute Python scripts in running UE5 editor with auto-launch capability, (4) verify UE5 project Python configuration
+description: Setup python support for UE5.x projects, execute Python scripts in UE5 editor instances. Use when users need to (1) run UE5.x python scripts (2) enable UE5 Python plugin and remote execution, (3) execute Python scripts in running UE5 editor with auto-launch capability, (4) verify UE5 project Python configuration
+model: haiku
 ---
 
 # UE5 Python Executor
+
+Setup python support for UE5.x projects
 
 Execute Python scripts and code in running Unreal Engine 5 editor instances via socket-based remote execution protocol. Supports automatic editor launching and configuration fixing.
 

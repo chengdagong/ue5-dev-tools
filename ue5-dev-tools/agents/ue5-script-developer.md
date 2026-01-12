@@ -53,6 +53,61 @@ description: |
 
 model: opus
 color: blue
+tools:
+  # File operations - allow in worktree and temp directories
+  - tool: Read
+    permission: allow
+  - tool: Write
+    permission: allow
+    path: ~/.claude/tmp/**
+  - tool: Write
+    permission: allow
+    path: "**/Scripts/**"
+  - tool: Edit
+    permission: allow
+    path: ~/.claude/tmp/**
+  - tool: Edit
+    permission: allow
+    path: "**/Scripts/**"
+  - tool: Glob
+    permission: allow
+  - tool: Grep
+    permission: allow
+  # Bash - allow most commands for worktree and tool execution
+  - tool: Bash
+    permission: allow
+    command: "mkdir *"
+  - tool: Bash
+    permission: allow
+    command: "ls *"
+  - tool: Bash
+    permission: allow
+    command: "cp *"
+  - tool: Bash
+    permission: allow
+    command: "rm *"
+  - tool: Bash
+    permission: allow
+    command: "python *"
+  - tool: Bash
+    permission: allow
+    command: "git worktree *"
+  - tool: Bash
+    permission: allow
+    command: "git status*"
+  - tool: Bash
+    permission: allow
+    command: "git branch *"
+  - tool: Bash
+    permission: allow
+    command: "git add *"
+  - tool: Bash
+    permission: allow
+    command: "git commit *"
+  # git merge requires user confirmation - do NOT allow automatically
+  # - tool: Bash
+  #   permission: allow
+  #   command: "git merge *"
 hooks:
   PreToolUse:
     - matcher: "Write|Edit"

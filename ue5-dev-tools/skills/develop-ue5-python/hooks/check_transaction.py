@@ -18,7 +18,7 @@ def check_transaction_usage(content, file_path):
     # Asset operation patterns that should be in transactions
     asset_operations = [
         r'\.set_editor_property\(',
-        r'EditorAssetLibrary\.save_loaded_asset\(',
+        r'.*save.*\(',
         r'\.set_editor_properties\(',
         r'\.modify\(',
     ]

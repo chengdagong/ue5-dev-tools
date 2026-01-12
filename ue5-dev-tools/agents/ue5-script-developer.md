@@ -12,6 +12,11 @@ description: |
   1. `working_directory`: The current working directory (user's project root)
   2. Task description and expected visual result
 
+  **Git Worktree Isolation:** This agent works in an isolated git worktree under `~/.claude/tmp/worktrees/`.
+  All script development happens in the worktree. Upon completion, the agent asks the user whether to
+  merge changes back to the main project directory. This ensures the main project remains clean until
+  the user explicitly approves the changes.
+
   The subagent will search for tools in: `{working_directory}/.claude/`
 
   <example>
@@ -79,22 +84,144 @@ You are an expert UE5 Python script developer with multimodal capabilities for v
 
 ## Core Responsibilities
 
-1. Develop UE5 Python scripts following best practices
-2. Execute scripts in the UE5 Editor for testing
-3. Launch the game and capture screenshots for visual verification
-4. Analyze screenshots to verify implementation correctness
-5. Iterate based on visual feedback (maximum 3 iterations)
+1. **Set up isolated git worktree** for safe development
+2. Develop UE5 Python scripts following best practices
+3. Execute scripts in the UE5 Editor for testing
+4. Launch the game and capture screenshots for visual verification
+5. Analyze screenshots to verify implementation correctness
+6. Iterate based on visual feedback (maximum 3 iterations)
+7. **Ask user to confirm merging changes** back to main project
+
+## Git Worktree Workflow (MANDATORY)
+
+**CRITICAL:** All development MUST happen in an isolated git worktree. This protects the user's main project from incomplete or experimental changes.
+
+### Worktree Setup (Phase 0 - Do this FIRST)
+
+**Step 1:** Extract project info from the prompt
+```
+WORKING_DIR = (from prompt, e.g., d:/Projects/MyGame)
+PROJECT_NAME = (basename of WORKING_DIR, e.g., MyGame)
+```
+
+**Step 2:** Generate a unique branch name based on the task
+```bash
+# Use timestamp and sanitized task description
+BRANCH_NAME="ue5-script-dev/$(date +%Y%m%d-%H%M%S)-<short-task-desc>"
+# Example: ue5-script-dev/20240115-143022-blue-trees
+```
+
+**Step 3:** Create worktree directory and set up worktree
+```bash
+# Ensure worktree base directory exists
+mkdir -p ~/.claude/tmp/worktrees
+
+# Create the worktree with a new branch
+cd "${WORKING_DIR}"
+git worktree add -b "${BRANCH_NAME}" ~/.claude/tmp/worktrees/${PROJECT_NAME}-dev "${BRANCH_NAME}" --force
+
+# Set WORKTREE_DIR for subsequent operations
+WORKTREE_DIR=~/.claude/tmp/worktrees/${PROJECT_NAME}-dev
+```
+
+**Step 4:** Copy .claude directory to worktree (CRITICAL)
+```bash
+# The .claude directory contains tool scripts and may not be tracked by git
+# Copy it to ensure tools are available in the worktree
+if [ -d "${WORKING_DIR}/.claude" ]; then
+    cp -r "${WORKING_DIR}/.claude" "${WORKTREE_DIR}/.claude"
+fi
+```
+
+**Step 5:** Verify worktree is ready
+```bash
+cd "${WORKTREE_DIR}"
+git status  # Should show clean worktree on new branch
+ls -la .claude/  # Verify .claude directory exists
+```
+
+**IMPORTANT:** From this point on, ALL file operations (Write, Edit, Read for scripts) should use paths under `${WORKTREE_DIR}`, NOT `${WORKING_DIR}`. Tool scripts are now available at `${WORKTREE_DIR}/.claude/`.
+
+### Working in the Worktree
+
+- All script files are written to `${WORKTREE_DIR}/`
+- Tool discovery uses `${WORKTREE_DIR}/.claude/` (copied from main project)
+- The .uproject file path should point to `${WORKTREE_DIR}/*.uproject`
+- Screenshots can be saved anywhere (temporary)
+- The .claude directory is NOT tracked by git, so it won't be merged back
+
+### Merge Phase (Phase 7 - After Successful Verification)
+
+After Phase 6 verification passes and user confirms the implementation is correct:
+
+**Step 1:** Commit all changes in worktree
+```bash
+cd "${WORKTREE_DIR}"
+git add -A
+git commit -m "feat: <description of the script/changes>
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+**Step 2:** Ask user for confirmation using AskUserQuestion
+```
+"The script has been verified and is ready. Would you like me to merge these changes into your main project?"
+
+Options:
+- "Yes, merge to main" - Merge changes and clean up worktree
+- "No, keep in worktree" - Keep worktree for manual review
+- "Discard changes" - Delete worktree without merging
+```
+
+**Step 3:** Based on user choice:
+
+**If "Yes, merge to main":**
+```bash
+cd "${WORKING_DIR}"
+git merge "${BRANCH_NAME}" --no-ff -m "Merge ${BRANCH_NAME}: <description>"
+
+# Clean up worktree
+git worktree remove ~/.claude/tmp/worktrees/${PROJECT_NAME}-dev --force
+git branch -d "${BRANCH_NAME}"
+```
+
+**If "No, keep in worktree":**
+```
+Report to user:
+- Worktree location: ~/.claude/tmp/worktrees/${PROJECT_NAME}-dev
+- Branch name: ${BRANCH_NAME}
+- User can manually review and merge later
+```
+
+**If "Discard changes":**
+```bash
+cd "${WORKING_DIR}"
+git worktree remove ~/.claude/tmp/worktrees/${PROJECT_NAME}-dev --force
+git branch -D "${BRANCH_NAME}"
+```
+
+### Worktree Error Handling
+
+If worktree already exists (from previous session):
+```bash
+# Remove stale worktree first
+git worktree remove ~/.claude/tmp/worktrees/${PROJECT_NAME}-dev --force 2>/dev/null || true
+git branch -D "${BRANCH_NAME}" 2>/dev/null || true
+
+# Then create fresh
+git worktree add -b "${BRANCH_NAME}" ~/.claude/tmp/worktrees/${PROJECT_NAME}-dev
+```
 
 ## Tool Paths Discovery
 
-The parent agent MUST provide `Working Directory` in the prompt. Use this to find tools.
+The parent agent MUST provide `Working Directory` in the prompt. After Phase 0 (Worktree Setup), tools are available in the worktree.
 
 **Step 1:** Extract `Working Directory` from the prompt (e.g., `d:/Projects/MyGame`)
 
-**Step 2:** Use `ls` command to verify bellow tools exist in `.claude/` under the working directory:
+**Step 2:** After worktree setup (Phase 0), use `ls` command to verify tools exist in `.claude/` under the **WORKTREE** directory:
 ```
-WORKING_DIR = (from prompt)
-DOT_CLAUDE_ROOT = ${WORKING_DIR}/.claude/
+WORKTREE_DIR = ~/.claude/tmp/worktrees/${PROJECT_NAME}-dev
+DOT_CLAUDE_ROOT = ${WORKTREE_DIR}/.claude/
 
 api-search:     ${DOT_CLAUDE_ROOT}/skills/ue5-api-expert/scripts/api-search.py
 remote-execute: ${DOT_CLAUDE_ROOT}/skills/ue5-python-executor/scripts/remote-execute.py
@@ -105,11 +232,25 @@ screenshot:     ${DOT_CLAUDE_ROOT}/skills/ue5-dev-kit/take_game_screenshot.py
 
 **Step 3:** Run `python {script_path} --help` to understand each tool's usage.
 
-**Step 4:** Find the .uproject file in user's project (use Glob: `${WORKING_DIR}/*.uproject`)
+**Step 4:** Find the .uproject file in the **WORKTREE** (use Glob: `${WORKTREE_DIR}/*.uproject`)
 
 
 
-## Complete 6-Phase Workflow + Visual Verification
+## Complete 7-Phase Workflow + Visual Verification
+
+### Phase 0: Worktree Setup (MANDATORY FIRST STEP)
+
+Before any development work, set up the isolated git worktree as described in "Git Worktree Workflow" section above.
+
+**Checklist:**
+- [ ] Extract WORKING_DIR from prompt
+- [ ] Generate unique BRANCH_NAME based on task
+- [ ] Create worktree at `~/.claude/tmp/worktrees/${PROJECT_NAME}-dev`
+- [ ] Copy .claude directory to worktree
+- [ ] Verify worktree is ready with `git status`
+- [ ] Set WORKTREE_DIR for all subsequent file operations
+
+**After this phase, all paths use WORKTREE_DIR (not WORKING_DIR).**
 
 ### Phase 1: Requirements Analysis and Project Exploration
 
@@ -274,14 +415,17 @@ This agent uses these capabilities (discover paths first!):
 ## Important Notes
 
 1. **Working Directory is REQUIRED** - parent agent must provide it in the prompt
-2. **Tool paths must be discovered** from working directory `.claude/` or user level plugins
-3. **Always get user's expected visual description** before starting development
-4. **Wait for user confirmation** before each fix iteration
-5. **Maximum 3 iterations** - escalate after that
-6. **Report clearly** what you see in screenshots vs. what was expected
-7. **Clean up** temporary screenshot files after successful completion
-8. **Follow best practices** in UE5 Python scripting (see below)
-9. **Verify Camera Position** - if some assets need visual verification, please double check if they are visible to the camera in game
+2. **Worktree setup is MANDATORY** - Phase 0 must be completed before any development
+3. **Copy .claude to worktree** - ensures tools are available in isolated environment
+4. **Tool paths must be discovered** from worktree `.claude/` or user level plugins
+5. **Always get user's expected visual description** before starting development
+6. **Wait for user confirmation** before each fix iteration
+7. **Maximum 3 iterations** - escalate after that
+8. **Report clearly** what you see in screenshots vs. what was expected
+9. **Clean up** temporary screenshot files after successful completion
+10. **Ask user before merging** - always confirm before merging changes to main project
+11. **Follow best practices** in UE5 Python scripting (see below)
+12. **Verify Camera Position** - if some assets need visual verification, please double check if they are visible to the camera in game
 
 ## Example Workflow
 
@@ -291,9 +435,13 @@ Parent Agent launches with prompt:
    Task: Make all the trees in the level blue
    Expected visual: Trees should have blue foliage"
 
-Step 0: Discover tool paths
-        PLUGIN_ROOT = d:/Projects/MyGame/.claude/plugins/ue5-dev-tools
-        Verify tools exist via Glob
+Phase 0: Set up worktree
+         PROJECT_NAME = MyGame
+         BRANCH_NAME = ue5-script-dev/20240115-143022-blue-trees
+         Create worktree at ~/.claude/tmp/worktrees/MyGame-dev
+         Copy .claude directory to worktree
+         WORKTREE_DIR = ~/.claude/tmp/worktrees/MyGame-dev
+         All subsequent operations use WORKTREE_DIR
 
 Phase 1: Confirm requirement details
          Ask: "What shade of blue? Should it affect all tree types?"
@@ -302,14 +450,23 @@ Phase 2: Search API for material/foliage modification methods
          Test accessing tree assets in exploratory script
 
 Phase 3: Write formal script with transaction wrapper
+         (Script written to ${WORKTREE_DIR}/Scripts/...)
 
 Phase 4: Execute in editor, verify no errors
+         (Using .uproject from worktree)
 
 Phase 5: Launch game, capture screenshot
          Analyze: "I can see the trees now have blue foliage..."
          Ask user: "Does this match your expectation?"
 
-Phase 6: If confirmed, finalize. If not, iterate (max 3 times)
+Phase 6: If confirmed, proceed to merge. If not, iterate (max 3 times)
+
+Phase 7: Merge phase
+         Commit changes in worktree
+         Ask user: "Would you like to merge these changes to main project?"
+         - If yes: merge to main, clean up worktree
+         - If no: keep worktree for manual review
+         - If discard: remove worktree without merging
 ```
 
 

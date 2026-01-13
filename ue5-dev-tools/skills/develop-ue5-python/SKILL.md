@@ -51,7 +51,7 @@ hooks:
       hooks:
         - type: prompt
           prompt: |
-            Based on the conversation transcript, verify if all of the user's requirements have been fully completed:
+            Examining $ARGUMENTS, verify if all of the user's requirements have been fully completed:
 
             1. **Review all user requests** - Look at the initial request and any follow-up requirements
             2. **Check task completion**:
@@ -61,29 +61,15 @@ hooks:
                - All API validations passed?
                - All errors fixed and resolved?
                - All user questions answered?
-            3. **Verify workflow phases**:
-               - Phase 1 (Requirements): Clarified ✓
-               - Phase 2 (Write Script): Completed ✓
-               - Phase 3 (Validation & Testing): Completed ✓
-               - Phase 4 (Visual Confirmation): Done if needed ✓
-               - Phase 5 (Iteration/Fixing): All issues resolved ✓
-               - Phase 7 (Completion): Finalized ✓
+            3. **Final cleanup** - Delete all failed screenshot attempts - only keep successful verification screenshots
 
-            Return ONLY valid JSON with this format:
-            {
-              "decision": "approve" or "block",
-              "reason": "Brief explanation of what's complete or what remains"
-            }
+            Respond with JSON: {"ok": true} to allow stopping, or {"ok": false, "reason": "your explanation"} to continue working.
 
             **Decision rules:**
-            - Return "approve" ONLY if all requirements are fully complete
-            - Return "block" if any required task is incomplete, unverified, or outstanding
-            - If uncertain, return "block" to ensure nothing is skipped
+            - Return {"ok": true} ONLY if all requirements are fully complete
+            - Return {"ok": false, "reason": "your explanation"} if any required task is incomplete, unverified, or outstanding
+            - If uncertain, return {"ok": false, "reason": "your explanation"} to ensure nothing is skipped
 
-            **Important cleanup reminder:**
-            - Delete all temporary *-cmd and *-cwd files from the project root
-            - Delete all failed screenshot attempts - only keep successful verification screenshots
-            - Verify no temporary files remain before final approval
 ---
 
 # UE5 Python Script Development Guide
@@ -92,7 +78,12 @@ A workflow-oriented guide for developing reliable UE5 Editor Python scripts, wit
 
 ## Development Workflow
 
-Follow this 7-phase workflow when developing UE5 Python scripts:
+This workflow has two levels:
+1. **Planning phase** - Understand requirements and break into subtasks
+2. **Per-script cycle** - Each script goes through: Write → Test → Verify → Fix → Complete
+
+** [Critical]** Enter Plan mode and complete Phase 1 and Phase 2 before coding any scripts.
+---
 
 ### Phase 1: Requirements and Exploration
 
@@ -102,72 +93,84 @@ Understand the task before coding:
 - Understand asset organization and naming conventions
 - Review project-specific patterns
 
+---
+
+### Phase 2: Plan Subtasks
+
+Enter plan mode. Break the task into smaller scripts. **Do not implement yet—just plan.**
+
+Always ask yourself:
+- Can I break this down further?
+- Can I test this smaller piece independently?
+
+Even if the user asks for "a script," break it into logical steps.
+
+**Example:** When user asks to "Create a level with blue sky, a pyramid, and a character looking at it", then plan these scripts:
+1. `create_sky_level.py` - Create level with blue sky
+2. `add_pyramid.py` - Add pyramid mesh
+3. `add_humanoid_character.py` - Add character
+
+For each script, plan its purpose and verification steps. PS: Visual verificaiton can be skipped if no visual changes.
+
+A example plan:
+```markdown
+- `create_sky_level.py`:
+  - Purpose: Create a new level with a blue sky
+  - Implmentation following the best practices
+  - Verification: Screenshot of level with sky
+
+- `add_pyramid.py`:
+  - Purpose: Add a pyramid mesh at origin
+  - Implementation following the best practices
+  - Verification: Screenshot of level with sky and pyramid
+
+- `add_humanoid_character.py`:
+  - Purpose: Add a humanoid character at origin
+  - Implementation following the best practices
+  - Verification: Screenshot of level with sky, pyramid, and character
+
+```
+
+
+** [Critical]** Exit plan mode and starts to implment scripts after Phase 1 and Phase 2 are completed. Execute plan without user confirmation.
+
+### Phase 3: Script Implementation Cycle
+
+Use your best knowledge of UE5 Python API and follow [best practices](#best-practices) to implement script.
+
 Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 - [Add gameplay tag to assets](./examples/add_gameplaytag_to_asset.py)
 - [Create blendspace](./examples/create_footwork_blendspace.py)
 - [Create level](./examples/create_sky_level.py)
 - [Customize sky atmosphere, fog, lighting and creating meshes](./examples/create_dark_pyramid_level.py)
 
-### Phase 2： Write Script
+Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
 
-Use your best knowledge of UE5 Python API to write the script.
+If you encounter API issues, may use **ue5-api-expert** skill to investigate.
 
-#### 2.1 Try to break the task into smaller sub-tasks to be implemented as separate scripts. Only make a plan. Do not implement yet.
+### How to do Visual Confirmation based on screenshot
 
-Always ask your self:
-- Can I break this down further?
-- Can I test this smaller piece first?
+**Required when script affects:**
+- Visual appearance (materials, meshes, lighting, UI)
+- Game behavior (character movement, AI, mechanics)
+- Level/world state (object placement, spawning)
 
-Even if user asks for a "sigle script", or "a script", don't take it literally. Always Break down the task into smaller logical steps.
+**Skip when:** Changes are data-only, organizational, or user requests to skip.
 
-For example, if the task is "Create a new level with a blue sky, a pyramid and a humaned character looking at the pyramid", break it down into:
-1. Write a script to create a new level with blue sky `create_sky_level.py`
-2. Write a script to add a pyramid mesh `add_pyramid.py`
-3. Write a script to add a humanoid character `add_humanoid_character.py`
-
-
-#### 2.2 Implement each sub-task script one by one.
-
-Start from the first sub-task script, implmement it fully. Follow the following phases for each script:
-
-##### For every script: Phase 3: Validation and Testing
-
-Verify script works correctly:
-- Re-verify key APIs exist with search-api
-- Test with single test asset first
-- Then run on target assets
-- Monitor console output and verify results
-
-
-##### For every script: Phase 4: Visual Confirmation
-
-Verify visual results in-game when script affects:
-- **Visual appearance** - materials, meshes, lighting, UI
-- **Game behavior** - character movement, AI, game mechanics
-- **Level/world state** - object placement, spawning, destruction
-
-**Skip this phase** when changes are data-only, organizational (renaming, moving assets), or user explicitly requests to skip.
-
-**Phase 4.1 Screenshot Tool Usage**
-
-Use `take_game_screenshot.py` from ue5-dev-kit:
+**How to capture screenshots:**
 
 ```bash
 python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screenshot.py" \
   -p "<path-to-uproject>" \
-  -l "NewLevelName" \
+  -l "LevelName" \
   -n 3 \
-  -i 1.0 \
-  -o "screenshots/new_level" \
-  -r "1280x720" \
-  --timeout 20 \
-  --load-timeout 20
+  -o "screenshots/output_prefix"
 ```
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `-p` | Project file path | Required |
-| `-l` | Level name (name only, no path) | Required |
+| `-l` | Level name (name only, no path/extension) | Required |
 | `-n` | Number of screenshots | 3 |
 | `-i` | Interval between screenshots (seconds) | 1.0 |
 | `-o` | Output filename prefix | `screenshot` |
@@ -175,53 +178,16 @@ python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screens
 | `--timeout` | Window wait timeout (seconds) | 20 |
 | `--load-timeout` | Game load timeout (seconds) | 20 |
 
-**Level parameter format:**
-- Correct: `-l "MainMenu"` (name only)
-- Wrong: `-l "/Game/Maps/MainMenu"` (includes path)
-- Wrong: `-l "MainMenu.umap"` (includes extension)
+**Level name format:**
+- Correct: `"MainMenu", "Level_01", "TestMap", "MyLevel"`
 
-**Phase 4.2 Analyze Screenshots**
-
-1. **Read screenshots** - Use Read tool to view captured images
-2. **Analyze visual content** - Check for expected changes, unexpected issues, visual artifacts
-3. **Compare with requirements** - Do visual results match the original request?
-
-#### Troubleshooting: Wrong Level Loaded
-
-**Symptom**: Unexpected level loads instead of specified level
-
-**Solution**:
-- Level parameter must be name only (e.g., `"MainMenu"`)
-- Do NOT include path separators (/, \)
-- Do NOT include .umap extension
-
-```bash
-# Correct
--l "MyLevel"
-
-# Wrong
--l "/Game/Maps/MyLevel"
--l "MyLevel.umap"
--l "MyLevel/"
-```
-
-#### For every script: Phase 6: Iteration and Fixing
-
-When problems occur:
-- Identify the problem from error messages
-- Try alternative APIs if available
-- Investigate C++ source if Python API is insufficient
-- Consider custom C++ utility classes for bridging gaps
-- Retry from Phase 4 after fixes
+**Analyze screenshots:**
+1. Read captured images
+2. Check for expected changes and any visual artifacts
+3. Verify results match original requirements
 
 
-#### For every script: Phase 7: Completion
-
-Finalize and save script:
-- Remove test mode flags
-- Final verification on test asset
-- Document script usage
-- Save to appropriate project location
+**Then proceed to the next script in your plan.**
 
 
 ## Best Practices
@@ -293,18 +259,12 @@ Recommended workflow:
 
 ### Additional Best Practices
 
-5. **Verify APIs before coding** - Use search-api in Phase 2 and Phase 4
-6. **Progressive testing** - Test exploratory scripts first, then single asset, then full set
-7. **Don't over-handle errors** - Let exceptions propagate; fail loudly not silently
-8. **Investigate C++ source when stuck** - Python API is derived from C++; C++ is the ground truth
-9. **Consider C++ utilities** - Valid solution when Python API is insufficient
-10. **Report results clearly** - Track success/failure counts; log meaningful progress
-11. **Verify visual results** - Use Phase 5 screenshot verification for visual/gameplay changes
-12. **Use ASCII-only output** - For cross-platform compatibility, use `[OK]`, `[ERROR]` instead of emojis
-
+4. **Don't over-handle errors** - Let exceptions propagate; fail loudly not silently
+5. **Report results clearly** - Track success/failure counts; log meaningful progress
+6. **Verify visual results** - Use screenshot verification for visual/gameplay changes
+7. **Use ASCII-only output** - For cross-platform compatibility, use `[OK]`, `[ERROR]` instead of emojis
 ## Additional Resources
 
 For comprehensive guidance on specific aspects of UE5 Python development:
 
-- **workflow-details.md** - Detailed step-by-step workflow for each development phase
 - **cpp-source-investigation.md** - Guide for investigating C++ source code when Python API is insufficient

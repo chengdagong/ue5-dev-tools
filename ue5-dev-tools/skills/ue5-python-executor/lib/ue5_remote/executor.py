@@ -326,11 +326,39 @@ class UE5RemoteExecution:
                     "output": []
                 }
 
+        except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError) as e:
+            # Connection errors likely indicate editor crash
+            logger.error(f"Connection lost during command execution: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "crashed": True,
+                "output": []
+            }
+        except OSError as e:
+            # OS-level socket errors (e.g., "Connection reset by peer")
+            if "connection" in str(e).lower() or "broken pipe" in str(e).lower():
+                logger.error(f"Connection lost during command execution: {e}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "crashed": True,
+                    "output": []
+                }
+            else:
+                logger.error(f"Command execution failed: {e}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "crashed": False,
+                    "output": []
+                }
         except Exception as e:
             logger.error(f"Command execution failed: {e}")
             return {
                 "success": False,
                 "error": str(e),
+                "crashed": False,
                 "output": []
             }
 

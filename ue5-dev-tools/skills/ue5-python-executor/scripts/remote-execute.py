@@ -45,17 +45,18 @@ ue5_utils_path = Path(__file__).parent.parent.parent / "ue5-dev-kit" / "lib"
 sys.path.insert(0, str(ue5_utils_path))
 
 from ue5_remote import UE5RemoteExecution
-from ue5_utils import find_project_name
+from ue5_utils import find_project_name, build_project
 
 # Configure logging
-logging.basicConfig(
-    format="[%(levelname)s] %(message)s",
-    level=logging.INFO
-)
+logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def launch_editor(executor: UE5RemoteExecution, launch_project_path: Path, project_root: Path) -> bool:
+def launch_editor(
+    executor: UE5RemoteExecution,
+    launch_project_path: Path,
+    project_root: Path,
+) -> bool:
     """
     Launch UE5 Editor and wait for it to become available.
 
@@ -81,19 +82,33 @@ def launch_editor(executor: UE5RemoteExecution, launch_project_path: Path, proje
         logger.info(f"Fixed Python Plugin: {config_result['python_plugin']['message']}")
 
     if config_result["remote_execution"]["modified"]:
-        logger.info(f"Fixed Remote Execution: {config_result['remote_execution']['message']}")
+        logger.info(
+            f"Fixed Remote Execution: {config_result['remote_execution']['message']}"
+        )
 
     if config_result["status"] == "fixed":
-        logger.info("Configuration fixed. Proceeding to launch Editor...")
+        logger.info("Configuration fixed. Proceeding...")
     elif config_result["status"] == "ok":
         logger.info("Configuration is correct.")
 
+    # Build project before launching
+    logger.info("Building project before launching Editor...")
+    build_success, build_msg = build_project(launch_project_path)
+    if build_success:
+        logger.info(build_msg)
+    else:
+        logger.error(f"Build failed: {build_msg}")
+        return False
+
     # Find Editor
     from ue5_utils import find_ue5_editor
+
     editor_path = find_ue5_editor()
 
     if not editor_path:
-        logger.error("Could not find Unreal Editor executable. Please launch it manually.")
+        logger.error(
+            "Could not find Unreal Editor executable. Please launch it manually."
+        )
         return False
 
     logger.info(f"Launching UE5 Editor: {editor_path}")
@@ -101,13 +116,14 @@ def launch_editor(executor: UE5RemoteExecution, launch_project_path: Path, proje
 
     # Launch Editor
     subprocess.Popen(
-        [str(editor_path), str(launch_project_path)],
-        start_new_session=True
+        [str(editor_path), str(launch_project_path)], start_new_session=True
     )
 
     # Wait for editor to start (poll for instance)
     max_attempts = 60  # 60 * 2s = 120s timeout
-    logger.info("Waiting for UE5 to start and enable remote execution (timeout: 120s)...")
+    logger.info(
+        "Waiting for UE5 to start and enable remote execution (timeout: 120s)..."
+    )
 
     found = False
     for i in range(max_attempts):
@@ -146,74 +162,65 @@ Examples:
 
 Environment Variables:
   CLAUDE_PROJECT_DIR - Auto-injected by Claude Code, used to infer project name
-        """
+        """,
     )
 
-    parser.add_argument(
-        "--code",
-        help="Python code to execute"
-    )
+    parser.add_argument("--code", help="Python code to execute")
 
-    parser.add_argument(
-        "--file",
-        type=Path,
-        help="Python file to execute"
-    )
+    parser.add_argument("--file", type=Path, help="Python file to execute")
 
     parser.add_argument(
         "--project-path",
         type=Path,
-        help="Path to .uproject file (optional if --project-name is specified)"
+        help="Path to .uproject file (optional if --project-name is specified)",
     )
 
     parser.add_argument(
         "--project-name",
         default=None,
-        help="Project name to filter UE5 instances (default: auto-detect from CLAUDE_PROJECT_DIR)"
+        help="Project name to filter UE5 instances (default: auto-detect from CLAUDE_PROJECT_DIR)",
     )
 
     parser.add_argument(
         "--multicast-group",
         default="239.0.0.1:6766",
-        help="Multicast group IP:port (default: 239.0.0.1:6766)"
+        help="Multicast group IP:port (default: 239.0.0.1:6766)",
     )
 
     parser.add_argument(
         "--timeout",
         type=float,
         default=5.0,
-        help="Command execution timeout in seconds (default: 5.0)"
+        help="Command execution timeout in seconds (default: 5.0)",
     )
 
     parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
+        "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
     parser.add_argument(
         "--detached",
         action="store_true",
-        help="Run in detached mode (spawn subprocess and exit)"
+        help="Run in detached mode (spawn subprocess and exit)",
     )
 
     parser.add_argument(
         "--wait",
         type=float,
         default=0.0,
-        help="Wait time in seconds before execution (useful for detached mode)"
+        help="Wait time in seconds before execution (useful for detached mode)",
     )
 
     parser.add_argument(
         "--no-launch",
         action="store_true",
-        help="Do not attempt to auto-launch UE5 editor if not found"
+        help="Do not attempt to auto-launch UE5 editor if not found",
     )
 
     parser.add_argument(
         "--no-restart-on-crash",
         action="store_true",
-        help="Disable automatic editor restart if connection is lost (likely crash)"
+        help="Disable automatic editor restart if connection is lost (likely crash)",
     )
 
     args = parser.parse_args()
@@ -229,7 +236,7 @@ Environment Variables:
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL
+            stdin=subprocess.DEVNULL,
         )
         sys.exit(0)
 
@@ -274,8 +281,7 @@ Environment Variables:
 
     # Create executor
     executor = UE5RemoteExecution(
-        multicast_group=multicast_group,
-        project_name=project_name or ""
+        multicast_group=multicast_group, project_name=project_name or ""
     )
 
     # Find and connect to UE5
@@ -283,7 +289,7 @@ Environment Variables:
         if args.no_launch:
             logger.error("No UE5 instance found and auto-launch disabled.")
             sys.exit(1)
-        
+
         logger.info("No running UE5 instance found. Preparing to auto-launch...")
 
         # Determine project info for launch AND config check
@@ -295,26 +301,29 @@ Environment Variables:
             if launch_project_path.is_file():
                 project_root = launch_project_path.parent
             else:
-                 # Assume directory provided? Not standard usage based on help, but let's be safe
-                 if launch_project_path.is_dir():
-                     project_root = launch_project_path
-                     # Find uproject in it
-                     candidates = list(project_root.glob("*.uproject"))
-                     if candidates:
-                         launch_project_path = candidates[0]
+                # Assume directory provided? Not standard usage based on help, but let's be safe
+                if launch_project_path.is_dir():
+                    project_root = launch_project_path
+                    # Find uproject in it
+                    candidates = list(project_root.glob("*.uproject"))
+                    if candidates:
+                        launch_project_path = candidates[0]
         elif project_name:
-             # Try to find project root from filesystem
-             from ue5_utils import find_ue5_project_root
-             project_root = find_ue5_project_root()
-             if project_root:
-                 # Look for .uproject in root
-                 candidates = list(project_root.glob("*.uproject"))
-                 if candidates:
-                     launch_project_path = candidates[0]
-        
+            # Try to find project root from filesystem
+            from ue5_utils import find_ue5_project_root
+
+            project_root = find_ue5_project_root()
+            if project_root:
+                # Look for .uproject in root
+                candidates = list(project_root.glob("*.uproject"))
+                if candidates:
+                    launch_project_path = candidates[0]
+
         if not launch_project_path or not project_root:
-             logger.error("Cannot auto-launch: Project path/root not specified and could not be inferred.")
-             sys.exit(1)
+            logger.error(
+                "Cannot auto-launch: Project path/root not specified and could not be inferred."
+            )
+            sys.exit(1)
 
         # Launch editor and wait for it to be ready
         if not launch_editor(executor, launch_project_path, project_root):
@@ -329,7 +338,9 @@ Environment Variables:
             sys.exit(1)
 
         try:
-            result = executor.execute_command(command, exec_type=exec_type, timeout=args.timeout)
+            result = executor.execute_command(
+                command, exec_type=exec_type, timeout=args.timeout
+            )
         finally:
             executor.close_connection()
 
@@ -352,6 +363,7 @@ Environment Variables:
                         launch_project_path = candidates[0]
             elif project_name:
                 from ue5_utils import find_ue5_project_root
+
                 project_root = find_ue5_project_root()
                 if project_root:
                     candidates = list(project_root.glob("*.uproject"))

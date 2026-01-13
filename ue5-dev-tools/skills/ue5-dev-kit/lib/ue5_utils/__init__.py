@@ -15,6 +15,9 @@ from .paths import (
     find_ue5_project_root,
     find_project_name,
     find_ue5_editor,
+    find_runuat,
+    find_build_bat,
+    build_project,
     find_skills_root,
     find_skill_path,
 )
@@ -23,6 +26,9 @@ __all__ = [
     "find_ue5_project_root",
     "find_project_name",
     "find_ue5_editor",
+    "find_runuat",
+    "find_build_bat",
+    "build_project",
     "find_skills_root",
     "find_skill_path",
 ]

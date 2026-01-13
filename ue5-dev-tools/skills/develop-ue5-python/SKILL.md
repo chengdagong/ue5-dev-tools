@@ -55,13 +55,73 @@ Verify script works correctly:
 
 ### Phase 5: Visual Confirmation
 
-Verify visual results in-game:
-- Use when script affects visual appearance, behavior, or world state
-- Skip when changes are data-only or organizational
-- Launch game using take_game_screenshot.py
-- Capture and analyze screenshots
-- Get user confirmation on visual results
+Verify visual results in-game when script affects:
+- **Visual appearance** - materials, meshes, lighting, UI
+- **Game behavior** - character movement, AI, game mechanics
+- **Level/world state** - object placement, spawning, destruction
 
+**Skip this phase** when changes are data-only, organizational (renaming, moving assets), or user explicitly requests to skip.
+
+#### Screenshot Tool Usage
+
+Use `take_game_screenshot.py` from ue5-dev-kit:
+
+```bash
+python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screenshot.py" \
+  -p "<path-to-uproject>" \
+  -l "<level-name-only>" \
+  -n 3 \
+  -i 1.0 \
+  -o "verification_screenshot" \
+  -r "1280x720" \
+  --timeout 20 \
+  --load-timeout 20
+```
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `-p` | Project file path | Required |
+| `-l` | Level name (name only, no path) | Required |
+| `-n` | Number of screenshots | 3 |
+| `-i` | Interval between screenshots (seconds) | 1.0 |
+| `-o` | Output filename prefix | `screenshot` |
+| `-r` | Game resolution | `1280x720` |
+| `--timeout` | Window wait timeout (seconds) | 20 |
+| `--load-timeout` | Game load timeout (seconds) | 20 |
+
+**Level parameter format:**
+- Correct: `-l "MainMenu"` (name only)
+- Wrong: `-l "/Game/Maps/MainMenu"` (includes path)
+- Wrong: `-l "MainMenu.umap"` (includes extension)
+
+#### Analyze Screenshots
+
+1. **Read screenshots** - Use Read tool to view captured images
+2. **Analyze visual content** - Check for expected changes, unexpected issues, visual artifacts
+3. **Compare with requirements** - Do visual results match the original request?
+
+#### Troubleshooting: Wrong Level Loaded
+
+**Symptom**: Unexpected level loads instead of specified level
+
+**Solution**:
+- Level parameter must be name only (e.g., `"MainMenu"`)
+- Do NOT include path separators (/, \)
+- Do NOT include .umap extension
+
+```bash
+# Correct
+-l "MyLevel"
+
+# Wrong
+-l "/Game/Maps/MyLevel"
+-l "MyLevel.umap"
+-l "MyLevel/"
+```
+
+#### Cleanup
+
+**Very important**: Delete screenshot files for failed trails. Only keep successful ones. 
 
 ### Phase 6: Iteration and Fixing
 
@@ -166,4 +226,3 @@ For comprehensive guidance on specific aspects of UE5 Python development:
 
 - **workflow-details.md** - Detailed step-by-step workflow for each development phase
 - **cpp-source-investigation.md** - Guide for investigating C++ source code when Python API is insufficient
-- **visual-verification.md** - Complete guide for visual verification using screenshot tools

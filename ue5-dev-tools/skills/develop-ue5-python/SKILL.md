@@ -1,6 +1,26 @@
 ---
 name: develop-ue5-python
 description: Comprehensive guide for developing UE5 Editor Python scripts with proper workflow and best practices. Use when the user wants to (1) write a UE5 Python script, (2) mentions writing a script in a UE5 project context, or (3) has a requirement that Claude identifies can be fulfilled by a UE5 Python script (e.g., batch processing game assets, automating editor tasks).
+allowedTools:
+  - tool: Read
+    path: "${CLAUDE_PROJECT_DIR}/**"
+  - tool: Write
+    path: "${CLAUDE_PROJECT_DIR}/**"
+  - tool: Edit
+    path: "${CLAUDE_PROJECT_DIR}/**"
+  - tool: Glob
+    path: "${CLAUDE_PROJECT_DIR}/**"
+  - tool: Grep
+    path: "${CLAUDE_PROJECT_DIR}/**"
+allowedPrompts:
+  - tool: Bash
+    prompt: "run python scripts in project directory"
+  - tool: Bash
+    prompt: "execute UE5 remote python scripts"
+  - tool: Bash
+    prompt: "take game screenshots"
+  - tool: Bash
+    prompt: "delete temporary files in project"
 hooks:
   PreToolUse:
     - matcher: "Write|Edit"
@@ -26,6 +46,44 @@ hooks:
                     sys.exit(2)
             except: pass
             "
+  Stop:
+    - matcher: "*"
+      hooks:
+        - type: prompt
+          prompt: |
+            Based on the conversation transcript, verify if all of the user's requirements have been fully completed:
+
+            1. **Review all user requests** - Look at the initial request and any follow-up requirements
+            2. **Check task completion**:
+               - All requested scripts written and saved?
+               - All scripts tested and verified working?
+               - Visual verification done if needed (screenshots taken)?
+               - All API validations passed?
+               - All errors fixed and resolved?
+               - All user questions answered?
+            3. **Verify workflow phases**:
+               - Phase 1 (Requirements): Clarified ✓
+               - Phase 2 (Write Script): Completed ✓
+               - Phase 3 (Validation & Testing): Completed ✓
+               - Phase 4 (Visual Confirmation): Done if needed ✓
+               - Phase 5 (Iteration/Fixing): All issues resolved ✓
+               - Phase 7 (Completion): Finalized ✓
+
+            Return ONLY valid JSON with this format:
+            {
+              "decision": "approve" or "block",
+              "reason": "Brief explanation of what's complete or what remains"
+            }
+
+            **Decision rules:**
+            - Return "approve" ONLY if all requirements are fully complete
+            - Return "block" if any required task is incomplete, unverified, or outstanding
+            - If uncertain, return "block" to ensure nothing is skipped
+
+            **Important cleanup reminder:**
+            - Delete all temporary *-cmd and *-cwd files from the project root
+            - Delete all failed screenshot attempts - only keep successful verification screenshots
+            - Verify no temporary files remain before final approval
 ---
 
 # UE5 Python Script Development Guide
@@ -48,27 +106,31 @@ Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 - [Add gameplay tag to assets](./examples/add_gameplaytag_to_asset.py)
 - [Create blendspace](./examples/create_footwork_blendspace.py)
 - [Create level](./examples/create_sky_level.py)
+- [Customize sky atmosphere, fog, lighting and creating meshes](./examples/create_dark_pyramid_level.py)
 
 ### Phase 2： Write Script
 
 Use your best knowledge of UE5 Python API to write the script.
 
-If your script modifies the scene or assets without creating a Transaction, you may leave half-done changes. Always use `unreal.ScopedEditorTransaction`, and add exception handling to call `transaction.cancel()` to rollback on failure:
+#### 2.1 Try to break the task into smaller sub-tasks to be implemented as separate scripts. Only make a plan. Do not implement yet.
 
-```python
-# Wrap all modification operations in a with statement
-with unreal.ScopedEditorTransaction("My Python Batch Rename") as transaction:
-    try:
-        for actor in selected_actors:
-            actor.set_actor_label(f"Prefix_{actor.get_actor_label()}")
-    # Users can now undo the entire loop's modifications with Ctrl+Z
-    except Exception as e:
-        transaction.cancell()
-        print(f"Error during batch rename: {e}")
-```
+Always ask your self:
+- Can I break this down further?
+- Can I test this smaller piece first?
+
+Even if user asks for a "sigle script", or "a script", don't take it literally. Always Break down the task into smaller logical steps.
+
+For example, if the task is "Create a new level with a blue sky, a pyramid and a humaned character looking at the pyramid", break it down into:
+1. Write a script to create a new level with blue sky `create_sky_level.py`
+2. Write a script to add a pyramid mesh `add_pyramid.py`
+3. Write a script to add a humanoid character `add_humanoid_character.py`
 
 
-### Phase 3: Validation and Testing
+#### 2.2 Implement each sub-task script one by one.
+
+Start from the first sub-task script, implmement it fully. Follow the following phases for each script:
+
+##### For every script: Phase 3: Validation and Testing
 
 Verify script works correctly:
 - Re-verify key APIs exist with search-api
@@ -77,7 +139,7 @@ Verify script works correctly:
 - Monitor console output and verify results
 
 
-### Phase 4: Visual Confirmation
+##### For every script: Phase 4: Visual Confirmation
 
 Verify visual results in-game when script affects:
 - **Visual appearance** - materials, meshes, lighting, UI
@@ -86,17 +148,17 @@ Verify visual results in-game when script affects:
 
 **Skip this phase** when changes are data-only, organizational (renaming, moving assets), or user explicitly requests to skip.
 
-#### Screenshot Tool Usage
+**Phase 4.1 Screenshot Tool Usage**
 
 Use `take_game_screenshot.py` from ue5-dev-kit:
 
 ```bash
 python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screenshot.py" \
   -p "<path-to-uproject>" \
-  -l "<level-name-only>" \
+  -l "NewLevelName" \
   -n 3 \
   -i 1.0 \
-  -o "verification_screenshot" \
+  -o "screenshots/new_level" \
   -r "1280x720" \
   --timeout 20 \
   --load-timeout 20
@@ -118,7 +180,7 @@ python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screens
 - Wrong: `-l "/Game/Maps/MainMenu"` (includes path)
 - Wrong: `-l "MainMenu.umap"` (includes extension)
 
-#### Analyze Screenshots
+**Phase 4.2 Analyze Screenshots**
 
 1. **Read screenshots** - Use Read tool to view captured images
 2. **Analyze visual content** - Check for expected changes, unexpected issues, visual artifacts
@@ -143,11 +205,7 @@ python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screens
 -l "MyLevel/"
 ```
 
-#### Cleanup
-
-**Very important**: Delete screenshot files for failed trails. Only keep successful ones. 
-
-### Phase 6: Iteration and Fixing
+#### For every script: Phase 6: Iteration and Fixing
 
 When problems occur:
 - Identify the problem from error messages
@@ -157,7 +215,7 @@ When problems occur:
 - Retry from Phase 4 after fixes
 
 
-### Phase 7: Completion
+#### For every script: Phase 7: Completion
 
 Finalize and save script:
 - Remove test mode flags

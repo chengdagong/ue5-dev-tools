@@ -55,6 +55,74 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def launch_editor(executor: UE5RemoteExecution, launch_project_path: Path, project_root: Path) -> bool:
+    """
+    Launch UE5 Editor and wait for it to become available.
+
+    Args:
+        executor: UE5RemoteExecution instance to use for discovering running instance
+        launch_project_path: Path to .uproject file
+        project_root: Root directory of the project
+
+    Returns:
+        True if editor launched and became available, False otherwise
+    """
+    # Check and Fix Configuration
+    logger.info(f"Checking project configuration in: {project_root}")
+    from ue5_remote.config import run_config_check
+
+    config_result = run_config_check(project_root, auto_fix=True)
+
+    if config_result["status"] == "error":
+        logger.error(f"Configuration check failed: {config_result['summary']}")
+        return False
+
+    if config_result["python_plugin"]["modified"]:
+        logger.info(f"Fixed Python Plugin: {config_result['python_plugin']['message']}")
+
+    if config_result["remote_execution"]["modified"]:
+        logger.info(f"Fixed Remote Execution: {config_result['remote_execution']['message']}")
+
+    if config_result["status"] == "fixed":
+        logger.info("Configuration fixed. Proceeding to launch Editor...")
+    elif config_result["status"] == "ok":
+        logger.info("Configuration is correct.")
+
+    # Find Editor
+    from ue5_utils import find_ue5_editor
+    editor_path = find_ue5_editor()
+
+    if not editor_path:
+        logger.error("Could not find Unreal Editor executable. Please launch it manually.")
+        return False
+
+    logger.info(f"Launching UE5 Editor: {editor_path}")
+    logger.info(f"Project: {launch_project_path}")
+
+    # Launch Editor
+    subprocess.Popen(
+        [str(editor_path), str(launch_project_path)],
+        start_new_session=True
+    )
+
+    # Wait for editor to start (poll for instance)
+    max_attempts = 60  # 60 * 2s = 120s timeout
+    logger.info("Waiting for UE5 to start and enable remote execution (timeout: 120s)...")
+
+    found = False
+    for i in range(max_attempts):
+        if executor.find_unreal_instance():
+            found = True
+            break
+        time.sleep(2.0)
+
+    if not found:
+        logger.error("Timeout waiting for Editor to start and enable remote execution.")
+        return False
+
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Execute arbitrary Python scripts in UE5 editor via socket-based remote execution",
@@ -140,6 +208,12 @@ Environment Variables:
         "--no-launch",
         action="store_true",
         help="Do not attempt to auto-launch UE5 editor if not found"
+    )
+
+    parser.add_argument(
+        "--no-restart-on-crash",
+        action="store_true",
+        help="Disable automatic editor restart if connection is lost (likely crash)"
     )
 
     args = parser.parse_args()
@@ -242,67 +316,59 @@ Environment Variables:
              logger.error("Cannot auto-launch: Project path/root not specified and could not be inferred.")
              sys.exit(1)
 
-        # Check and Fix Configuration
-        logger.info(f"Checking project configuration in: {project_root}")
-        from ue5_remote.config import run_config_check
-        
-        config_result = run_config_check(project_root, auto_fix=True)
-        
-        if config_result["status"] == "error":
-            logger.error(f"Configuration check failed: {config_result['summary']}")
-            sys.exit(1)
-        
-        if config_result["python_plugin"]["modified"]:
-            logger.info(f"Fixed Python Plugin: {config_result['python_plugin']['message']}")
-        
-        if config_result["remote_execution"]["modified"]:
-            logger.info(f"Fixed Remote Execution: {config_result['remote_execution']['message']}")
-            
-        if config_result["status"] == "fixed":
-             logger.info("Configuration fixed. Proceeding to launch Editor...")
-        elif config_result["status"] == "ok":
-             logger.info("Configuration is correct.")
-
-        # Find Editor
-        from ue5_utils import find_ue5_editor
-        editor_path = find_ue5_editor()
-        
-        if not editor_path:
-            logger.error("Could not find Unreal Editor executable. Please launch it manually.")
-            sys.exit(1)
-             
-        logger.info(f"Launching UE5 Editor: {editor_path}")
-        logger.info(f"Project: {launch_project_path}")
-        
-        # Launch Editor
-        subprocess.Popen(
-            [str(editor_path), str(launch_project_path)],
-             start_new_session=True
-        )
-        
-        # Wait for editor to start (poll for instance)
-        max_attempts = 60 # 60 * 2s = 120s timeout
-        logger.info("Waiting for UE5 to start and enable remote execution (timeout: 120s)...")
-        
-        found = False
-        for i in range(max_attempts):
-            if executor.find_unreal_instance():
-                found = True
-                break
-            time.sleep(2.0)
-            
-        if not found:
-            logger.error("Timeout waiting for Editor to start and enable remote execution.")
+        # Launch editor and wait for it to be ready
+        if not launch_editor(executor, launch_project_path, project_root):
             sys.exit(1)
 
-    if not executor.open_connection():
-        sys.exit(1)
+    # Execute command with crash detection and retry
+    max_crash_retries = 0 if args.no_restart_on_crash else 1
+    result = None
 
-    # Execute command
-    try:
-        result = executor.execute_command(command, exec_type=exec_type, timeout=args.timeout)
-    finally:
-        executor.close_connection()
+    for attempt in range(max_crash_retries + 1):
+        if not executor.open_connection():
+            sys.exit(1)
+
+        try:
+            result = executor.execute_command(command, exec_type=exec_type, timeout=args.timeout)
+        finally:
+            executor.close_connection()
+
+        # Check for crash
+        if result.get("crashed", False) and attempt < max_crash_retries:
+            logger.warning("Editor appears to have crashed. Restarting...")
+
+            # Need to determine project info for restart
+            launch_project_path = None
+            project_root = None
+
+            if args.project_path:
+                if args.project_path.is_file():
+                    project_root = args.project_path.parent
+                    launch_project_path = args.project_path
+                elif args.project_path.is_dir():
+                    project_root = args.project_path
+                    candidates = list(project_root.glob("*.uproject"))
+                    if candidates:
+                        launch_project_path = candidates[0]
+            elif project_name:
+                from ue5_utils import find_ue5_project_root
+                project_root = find_ue5_project_root()
+                if project_root:
+                    candidates = list(project_root.glob("*.uproject"))
+                    if candidates:
+                        launch_project_path = candidates[0]
+
+            if not launch_project_path or not project_root:
+                logger.error("Cannot restart editor: Project path/root not available.")
+                sys.exit(1)
+
+            if not launch_editor(executor, launch_project_path, project_root):
+                logger.error("Failed to restart editor")
+                sys.exit(1)
+
+            continue  # Retry command execution
+
+        break  # Success or non-crash error
 
     # Print results
     if "error" in result and result.get("error"):

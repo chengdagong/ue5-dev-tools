@@ -146,6 +146,8 @@ Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 
 Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
 
+#### Confirm API availability and usage with ue5-api-expert skill when necessary
+
 If you encounter API issues, may use **ue5-api-expert** skill to investigate.
 
 ### How to do Visual Confirmation based on screenshot

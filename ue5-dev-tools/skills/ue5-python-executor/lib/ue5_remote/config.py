@@ -41,7 +41,9 @@ def find_uproject(project_root: Path) -> Optional[Path]:
 
 def check_python_plugin(uproject_path: Path, auto_fix: bool = False) -> Tuple[bool, bool, str]:
     """
-    Check and optionally fix PythonScriptPlugin in .uproject.
+    Check and optionally fix Python-related plugins in .uproject.
+
+    Checks both PythonScriptPlugin and PythonAutomationTest plugins.
 
     Args:
         uproject_path: Path to .uproject file
@@ -50,6 +52,8 @@ def check_python_plugin(uproject_path: Path, auto_fix: bool = False) -> Tuple[bo
     Returns:
         (enabled, modified, message)
     """
+    required_plugins = ["PythonScriptPlugin", "PythonAutomationTest"]
+
     try:
         with open(uproject_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
@@ -59,43 +63,50 @@ def check_python_plugin(uproject_path: Path, auto_fix: bool = False) -> Tuple[bo
         return False, False, f"Read Failed: {e}"
 
     plugins = config.get("Plugins", [])
-    python_plugin = next(
-        (p for p in plugins if p.get("Name") == "PythonScriptPlugin"),
-        None
-    )
+    modified = False
+    messages = []
+    all_enabled = True
 
-    # Check plugin status
-    if python_plugin is None:
-        if auto_fix:
-            plugins.append({
-                "Name": "PythonScriptPlugin",
-                "Enabled": True
-            })
-            config["Plugins"] = plugins
+    for plugin_name in required_plugins:
+        plugin = next(
+            (p for p in plugins if p.get("Name") == plugin_name),
+            None
+        )
 
-            try:
-                with open(uproject_path, 'w', encoding='utf-8') as f:
-                    json.dump(config, f, indent="\t")
-                return True, True, "Added PythonScriptPlugin to Plugins array"
-            except Exception as e:
-                return False, False, f"Write Failed: {e}"
-        else:
-            return False, False, "PythonScriptPlugin not in Plugins array"
+        if plugin is None:
+            if auto_fix:
+                plugins.append({
+                    "Name": plugin_name,
+                    "Enabled": True
+                })
+                modified = True
+                messages.append(f"Added {plugin_name}")
+            else:
+                all_enabled = False
+                messages.append(f"{plugin_name} not in Plugins array")
 
-    elif not python_plugin.get("Enabled", False):
-        if auto_fix:
-            python_plugin["Enabled"] = True
+        elif not plugin.get("Enabled", False):
+            if auto_fix:
+                plugin["Enabled"] = True
+                modified = True
+                messages.append(f"Enabled {plugin_name}")
+            else:
+                all_enabled = False
+                messages.append(f"{plugin_name} exists but disabled")
 
-            try:
-                with open(uproject_path, 'w', encoding='utf-8') as f:
-                    json.dump(config, f, indent="\t")
-                return True, True, "Enabled PythonScriptPlugin"
-            except Exception as e:
-                return False, False, f"Write Failed: {e}"
-        else:
-            return False, False, "PythonScriptPlugin exists but disabled"
+    if modified:
+        config["Plugins"] = plugins
+        try:
+            with open(uproject_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent="\t")
+            return True, True, "; ".join(messages)
+        except Exception as e:
+            return False, False, f"Write Failed: {e}"
 
-    return True, False, "PythonScriptPlugin correctly configured"
+    if not messages:
+        messages.append("Python plugins correctly configured")
+
+    return all_enabled, False, "; ".join(messages)
 
 
 def check_remote_execution(ini_path: Path, auto_fix: bool = False) -> Tuple[bool, bool, List[str]]:

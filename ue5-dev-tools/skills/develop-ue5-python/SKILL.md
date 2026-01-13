@@ -3,7 +3,47 @@ name: develop-ue5-python
 description: Comprehensive guide for developing UE5 Editor Python scripts with proper workflow and best practices. Use when the user wants to (1) write a UE5 Python script, (2) mentions writing a script in a UE5 project context, or (3) has a requirement that Claude identifies can be fulfilled by a UE5 Python script (e.g., batch processing game assets, automating editor tasks).
 hooks:
   PreToolUse:
-    - python ${CLAUDE_SKILL_ROOT}/hooks/check_transaction.py
+    - matcher: "Write|Edit"
+      hooks:
+        - type: command
+          command: bash -c 'python3 << "EOF"
+import sys, json, re, io
+hook_input = sys.stdin.read()
+sys.stdin = io.StringIO(hook_input)
+def check_transaction_usage(content, file_path):
+    if "import unreal" not in content:
+        return True, None
+    asset_operations = [r"\.set_editor_property\(", r".*save.*\(", r"\.set_editor_properties\(", r"\.modify\("]
+    has_asset_ops = any(re.search(pattern, content) for pattern in asset_operations)
+    if not has_asset_ops:
+        return True, None
+    has_transaction = bool(re.search(r"with\s+unreal\.ScopedEditorTransaction\s*\(", content) or re.search(r"unreal\.ScopedEditorTransaction\(", content))
+    if not has_transaction:
+        error_msg = f"❌ Transaction Check Failed for: {file_path}\n\nThis Python file contains UE5 asset modification operations but does NOT use transactions.\n\nAsset operations detected (one or more of):\n- set_editor_property()\n- save_loaded_asset()\n- set_editor_properties()\n- modify()\n\nREQUIRED: Wrap asset modifications in a transaction:\n\n    with unreal.ScopedEditorTransaction(\"Description\") as trans:\n        asset.set_editor_property(\"property_name\", value)\n        unreal.EditorAssetLibrary.save_loaded_asset(asset)\n\nWhy transactions are required:\n- Enables automatic rollback on failure\n- Provides undo functionality in editor\n- Ensures data consistency\n\nPlease fix the code before proceeding."
+        return False, error_msg
+    return True, None
+try:
+    tool_input = json.load(sys.stdin)
+    tool_name = tool_input.get("tool_name", "")
+    if tool_name not in ["Write", "Edit"]:
+        sys.exit(0)
+    file_path = tool_input.get("tool_input", {}).get("file_path", "")
+    if not file_path.endswith(".py"):
+        sys.exit(0)
+    if tool_name == "Write":
+        content = tool_input.get("tool_input", {}).get("content", "")
+    else:
+        sys.exit(0)
+    is_valid, error_msg = check_transaction_usage(content, file_path)
+    if not is_valid:
+        print(error_msg, file=sys.stderr)
+        sys.exit(2)
+    sys.exit(0)
+except Exception as e:
+    print(f"Hook error (non-blocking): {e}", file=sys.stderr)
+    sys.exit(0)
+EOF
+'
 ---
 
 # UE5 Python Script Development Guide

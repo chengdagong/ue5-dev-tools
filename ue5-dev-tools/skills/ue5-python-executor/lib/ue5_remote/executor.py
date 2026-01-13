@@ -202,6 +202,47 @@ class UE5RemoteExecution:
             logger.error(f"Failed to find UE5: {e}")
             return False
 
+    def find_all_matching_instances(self) -> List[Dict]:
+        """
+        Find all UE5 instances matching project_name filter.
+
+        Returns:
+            List of instance info dicts with 'source' (node_id), 'data' (project info)
+        """
+        try:
+            self.mcast_sock = self._create_multicast_socket()
+
+            logger.info("Searching for UE5 instances...")
+            if self.project_name:
+                logger.info(f"Filter: project_name='{self.project_name}'")
+
+            ping_msg = {
+                "version": self.PROTOCOL_VERSION,
+                "magic": self.MAGIC,
+                "source": "python_executor",
+                "type": "ping"
+            }
+            self._send_message(self.mcast_sock, ping_msg)
+
+            all_pongs = self._receive_all_messages(self.mcast_sock, "ping", timeout=5.0)
+
+            if all_pongs:
+                logger.info(f"Discovered {len(all_pongs)} UE5 instance(s):")
+                for i, pong in enumerate(all_pongs, 1):
+                    project = pong.get("data", {}).get("project_name", "Unknown")
+                    engine = pong.get("data", {}).get("engine_version", "Unknown")
+                    node_id = pong.get("source", "Unknown")
+                    logger.info(f"  {i}. {project} (UE {engine}) [node: {node_id}]")
+            else:
+                logger.error("No UE5 instances discovered on network")
+                logger.info("Ensure UE5 editor is running with Python plugin enabled")
+
+            return all_pongs
+
+        except Exception as e:
+            logger.error(f"Failed to find UE5 instances: {e}")
+            return []
+
     def open_connection(self) -> bool:
         """Open command connection to UE5."""
         try:
@@ -361,6 +402,37 @@ class UE5RemoteExecution:
                 "crashed": False,
                 "output": []
             }
+
+    def get_project_path(self, timeout: float = 5.0) -> Optional[str]:
+        """
+        Get current project file path from connected UE5 instance.
+
+        Must be called after open_connection().
+
+        Returns:
+            Project file path (e.g. "D:/Code/TestFlight/TestFlight.uproject") or None
+        """
+        code = "import unreal; print(unreal.Paths.get_project_file_path())"
+        result = self.execute_command(
+            code, exec_type=self.ExecTypes.EXECUTE_STATEMENT, timeout=timeout
+        )
+
+        if result.get("success") and result.get("output"):
+            for line in result["output"]:
+                if isinstance(line, dict):
+                    output_str = line.get("output", "")
+                else:
+                    output_str = str(line)
+
+                output_str = output_str.strip()
+                if output_str and (
+                    ".uproject" in output_str
+                    or "/" in output_str
+                    or "\\" in output_str
+                ):
+                    return output_str
+
+        return None
 
     def close_connection(self):
         """Close connection to UE5."""

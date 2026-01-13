@@ -139,6 +139,69 @@ def launch_editor(
     return True
 
 
+def find_correct_instance(
+    executor: UE5RemoteExecution,
+    expected_project_path: Optional[Path],
+) -> bool:
+    """
+    Find the correct UE5 instance, verifying project path when multiple same-name instances exist.
+
+    Args:
+        executor: UE5RemoteExecution instance
+        expected_project_path: Expected .uproject file path (for verification)
+
+    Returns:
+        True if correct instance found and selected, False otherwise
+    """
+    instances = executor.find_all_matching_instances()
+
+    if not instances:
+        return False
+
+    if len(instances) == 1:
+        # Only one instance, use it directly
+        executor.unreal_node_id = instances[0].get("source")
+        return True
+
+    # Multiple instances
+    if not expected_project_path:
+        # No path specified, warn and use first
+        logger.warning(
+            f"Found {len(instances)} instances with same project name. "
+            f"Use --project-path to specify which one to connect to."
+        )
+        executor.unreal_node_id = instances[0].get("source")
+        return True
+
+    # Path specified, verify each instance
+    logger.info(f"Found {len(instances)} instances, verifying project paths...")
+    expected_resolved = expected_project_path.resolve()
+
+    for i, instance in enumerate(instances, 1):
+        executor.unreal_node_id = instance.get("source")
+        logger.info(f"Checking instance {i}/{len(instances)}...")
+
+        if not executor.open_connection():
+            logger.warning(f"  Could not connect to instance {i}")
+            continue
+
+        try:
+            actual_path = executor.get_project_path()
+            if actual_path:
+                actual_resolved = Path(actual_path).resolve()
+                logger.info(f"  Project path: {actual_path}")
+
+                if actual_resolved == expected_resolved:
+                    logger.info("  Match found!")
+                    executor.close_connection()
+                    return True
+        finally:
+            executor.close_connection()
+
+    logger.error(f"No instance found matching project path: {expected_project_path}")
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Execute arbitrary Python scripts in UE5 editor via socket-based remote execution",
@@ -285,7 +348,7 @@ Environment Variables:
     )
 
     # Find and connect to UE5
-    if not executor.find_unreal_instance():
+    if not find_correct_instance(executor, args.project_path):
         if args.no_launch:
             logger.error("No UE5 instance found and auto-launch disabled.")
             sys.exit(1)

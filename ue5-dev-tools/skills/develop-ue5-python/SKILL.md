@@ -6,44 +6,26 @@ hooks:
     - matcher: "Write|Edit"
       hooks:
         - type: command
-          command: bash -c 'python3 << "EOF"
-import sys, json, re, io
-hook_input = sys.stdin.read()
-sys.stdin = io.StringIO(hook_input)
-def check_transaction_usage(content, file_path):
-    if "import unreal" not in content:
-        return True, None
-    asset_operations = [r"\.set_editor_property\(", r".*save.*\(", r"\.set_editor_properties\(", r"\.modify\("]
-    has_asset_ops = any(re.search(pattern, content) for pattern in asset_operations)
-    if not has_asset_ops:
-        return True, None
-    has_transaction = bool(re.search(r"with\s+unreal\.ScopedEditorTransaction\s*\(", content) or re.search(r"unreal\.ScopedEditorTransaction\(", content))
-    if not has_transaction:
-        error_msg = f"❌ Transaction Check Failed for: {file_path}\n\nThis Python file contains UE5 asset modification operations but does NOT use transactions.\n\nAsset operations detected (one or more of):\n- set_editor_property()\n- save_loaded_asset()\n- set_editor_properties()\n- modify()\n\nREQUIRED: Wrap asset modifications in a transaction:\n\n    with unreal.ScopedEditorTransaction(\"Description\") as trans:\n        asset.set_editor_property(\"property_name\", value)\n        unreal.EditorAssetLibrary.save_loaded_asset(asset)\n\nWhy transactions are required:\n- Enables automatic rollback on failure\n- Provides undo functionality in editor\n- Ensures data consistency\n\nPlease fix the code before proceeding."
-        return False, error_msg
-    return True, None
-try:
-    tool_input = json.load(sys.stdin)
-    tool_name = tool_input.get("tool_name", "")
-    if tool_name not in ["Write", "Edit"]:
-        sys.exit(0)
-    file_path = tool_input.get("tool_input", {}).get("file_path", "")
-    if not file_path.endswith(".py"):
-        sys.exit(0)
-    if tool_name == "Write":
-        content = tool_input.get("tool_input", {}).get("content", "")
-    else:
-        sys.exit(0)
-    is_valid, error_msg = check_transaction_usage(content, file_path)
-    if not is_valid:
-        print(error_msg, file=sys.stderr)
-        sys.exit(2)
-    sys.exit(0)
-except Exception as e:
-    print(f"Hook error (non-blocking): {e}", file=sys.stderr)
-    sys.exit(0)
-EOF
-'
+          command: |
+            python -c "
+            import sys, json, re
+            try:
+                data = json.load(sys.stdin)
+                tool = data.get('tool_name', '')
+                if tool not in ['Write', 'Edit']: sys.exit(0)
+                fp = data.get('tool_input', {}).get('file_path', '')
+                if not fp.endswith('.py'): sys.exit(0)
+                content = data.get('tool_input', {}).get('content', '') if tool == 'Write' else ''
+                if not content or 'import unreal' not in content: sys.exit(0)
+                ops = [r'\.set_editor_property\(', r'.*save.*\(', r'\.set_editor_properties\(', r'\.modify\(']
+                has_ops = any(re.search(p, content) for p in ops)
+                if not has_ops: sys.exit(0)
+                has_tx = bool(re.search(r'with\s+unreal\.ScopedEditorTransaction\s*\(', content) or re.search(r'unreal\.ScopedEditorTransaction\(', content))
+                if not has_tx:
+                    print(f'Transaction Check Failed: {fp}\n\nThis UE5 Python script modifies assets but does NOT use transactions.\n\nREQUIRED: Wrap in transaction:\n  with unreal.ScopedEditorTransaction(\"Desc\"):\n      asset.set_editor_property(...)\n\nWhy: Enables undo and rollback on failure.', file=sys.stderr)
+                    sys.exit(2)
+            except: pass
+            "
 ---
 
 # UE5 Python Script Development Guide
@@ -62,29 +44,31 @@ Understand the task before coding:
 - Understand asset organization and naming conventions
 - Review project-specific patterns
 
+Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
+- [Add gameplay tag to assets](./examples/add_gameplaytag_to_asset.py)
+- [Create blendspace](./examples/create_footwork_blendspace.py)
+- [Create level](./examples/create_sky_level.py)
 
-### Phase 2: API Validation and Exploration
+### Phase 2： Write Script
 
-Verify APIs exist before coding:
-- Check if classes and methods are available in Python API
-- Query class definitions using search-api
-- Write exploratory scripts to validate approach
+Use your best knowledge of UE5 Python API to write the script.
 
-Use **ue5-api-expert** skill to query and explore available APIs.
+If your script modifies the scene or assets without creating a Transaction, you may leave half-done changes. Always use `unreal.ScopedEditorTransaction`, and add exception handling to call `transaction.cancel()` to rollback on failure:
 
-Use **ue5-python-executor** skill to run exploratory scripts quickly without manual UE5 interaction.
-
-### Phase 3: Write Formal Script
-
-Implement complete logic with proper structure:
-- Break script into logical functions
-- Use proper error handling (let exceptions propagate)
-- Always use transactions for asset modifications
-- Log key milestones and results
-- Track success/failure counts
+```python
+# Wrap all modification operations in a with statement
+with unreal.ScopedEditorTransaction("My Python Batch Rename") as transaction:
+    try:
+        for actor in selected_actors:
+            actor.set_actor_label(f"Prefix_{actor.get_actor_label()}")
+    # Users can now undo the entire loop's modifications with Ctrl+Z
+    except Exception as e:
+        transaction.cancell()
+        print(f"Error during batch rename: {e}")
+```
 
 
-### Phase 4: Validation and Testing
+### Phase 3: Validation and Testing
 
 Verify script works correctly:
 - Re-verify key APIs exist with search-api
@@ -93,7 +77,7 @@ Verify script works correctly:
 - Monitor console output and verify results
 
 
-### Phase 5: Visual Confirmation
+### Phase 4: Visual Confirmation
 
 Verify visual results in-game when script affects:
 - **Visual appearance** - materials, meshes, lighting, UI

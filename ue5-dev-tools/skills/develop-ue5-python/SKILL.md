@@ -140,7 +140,7 @@ A example plan:
 
 Use your best knowledge of UE5 Python API and follow [best practices](#best-practices) to implement script.
 
-[Critical] Check out [API Reference](./references/api-references.md) for common pitfalls.
+[Critical] List files in folder [Common Pitfalls](./references/common-pitfalls/) and check if any document is related to your current task. If yes, please read it carefully before coding.
 
 Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 
@@ -168,15 +168,11 @@ If you are unsure about what UE5 Python API to use or encounter issues, use **ue
 
 **How to capture screenshots:**
 
-Use orbital_screenshot.py to capture multi-angle screenshots of the scene:
+Use *ue5-python-executor* skill to run [./scripts/orbital_screenshot.py](./scripts/orbital_screenshot.py) to capture multi-angle screenshots of the scene. orbital_screenshots accepts the following arguments:
 
-```bash
-python "..\skills\ue5-python-executor\scripts\remote-execute.py" \
-  --project-path "<path-to-uproject>" \
-  --file ".\scripts\orbital_screenshot.py" \
+``
   --args "level=//Game/Path/To/Level,preset=orthographic,target=0+0+100,resolution=800x600,distance=500,output=screenshots,prefix=capture"
-```
-
+``
 
 | Parameter    | Description                                                                             | Default       |
 | -------------- | ----------------------------------------------------------------------------------------- | --------------- |

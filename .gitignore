@@ -19,6 +19,7 @@ build/
 .coverage
 htmlcov/
 .tox/
+*-cwd
 
 # Auto-generated E2E test projects
 ue5-dev-tools/tests/fixtures/E2ETestProject/

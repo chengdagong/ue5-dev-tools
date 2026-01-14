@@ -15,8 +15,8 @@ Usage:
     # Execute a Python file
     python remote-exec --file /path/to/script.py --project-path /path/to/project.uproject
 
-    # Execute a Python file with arguments (key=value pairs, comma-separated, no spaces)
-    python remote-exec --file script.py --args "level=MyLevel,output=./screenshots,resolution=1920x1080"
+    # Execute a Python file with arguments (converted to sys.argv for argparse)
+    python remote-exec --file script.py --args "preset=orthographic,level=/Game/Maps/MyLevel,resolution=1920x1080"
 
     # Execute with project name filter
     python remote-exec --code "print('Hello')" --project-name MyProject
@@ -217,8 +217,8 @@ Examples:
   # Execute a Python file
   python remote-execute.py --file script.py --project-path /path/to/project.uproject
 
-  # Execute a Python file with arguments (key=value format)
-  python remote-execute.py --file script.py --args "level=MyLevel,output=./screenshots"
+  # Execute a Python file with arguments (converted to --key value for argparse)
+  python remote-execute.py --file script.py --args "preset=orthographic,no-grid=true"
 
   # Filter by project name (auto-detected from CLAUDE_PROJECT_DIR)
   python remote-execute.py --code "print('Hello')"
@@ -296,7 +296,9 @@ Environment Variables:
         "--args",
         type=str,
         default="",
-        help="Arguments as key=value pairs, comma-separated, no spaces (e.g., 'level=MyLevel,output=./out')",
+        help="Arguments as key=value pairs, comma-separated. Converted to sys.argv for argparse. "
+             "Boolean flags: key=true adds --key, key=false skips. "
+             "(e.g., 'preset=orthographic,no-grid=true,resolution=1920x1080')",
     )
 
     args = parser.parse_args()
@@ -366,13 +368,30 @@ Environment Variables:
                 logger.error(f"Failed to read script file: {e}")
                 sys.exit(1)
 
-            # Inject ARGS dict at the beginning of the script
-            args_repr = repr(script_args)
-            command = f"ARGS = {args_repr}\n{script_content}"
+            # Build sys.argv list for argparse compatibility
+            argv_list = [str(file_path)]  # argv[0] is script name
+            for key, value in script_args.items():
+                # Convert underscores to hyphens for argparse compatibility
+                arg_name = key.replace("_", "-")
+                # Handle boolean flags (true = add flag, false = skip)
+                if value.lower() in ("true", "false"):
+                    if value.lower() == "true":
+                        argv_list.append(f"--{arg_name}")
+                else:
+                    argv_list.append(f"--{arg_name}")
+                    # Normalize UE paths: //Game/... -> /Game/... (MSYS escape workaround)
+                    if value.startswith("//") and not value.startswith("///"):
+                        value = value[1:]  # Remove one leading slash
+                    argv_list.append(value)
+
+            # Inject sys.argv override at the beginning of the script
+            argv_repr = repr(argv_list)
+            command = f"import sys\nsys.argv = {argv_repr}\n{script_content}"
             exec_type = UE5RemoteExecution.ExecTypes.EXECUTE_FILE
 
             if args.verbose:
                 logger.debug(f"Script arguments: {script_args}")
+                logger.debug(f"Injected sys.argv: {argv_list}")
         else:
             command = str(file_path)
             exec_type = UE5RemoteExecution.ExecTypes.EXECUTE_FILE

@@ -7,6 +7,8 @@
 import unreal
 import math
 import os
+import argparse
+import sys
 
 
 # ============================================
@@ -287,8 +289,8 @@ def capture_single_view(
     view_name,
     display_name,
     output_dir,
-    filename_prefix,
-    resolution,
+    resolution_width,
+    resolution_height,
     is_orthographic=False,
     ortho_width=600.0
 ):
@@ -324,8 +326,8 @@ def capture_single_view(
     # Create render target
     render_target = unreal.RenderingLibrary.create_render_target2d(
         loaded_world,
-        resolution,
-        resolution,
+        resolution_width,
+        resolution_height,
         unreal.TextureRenderTargetFormat.RTF_RGBA8
     )
 
@@ -341,7 +343,7 @@ def capture_single_view(
     capture_component.capture_scene()
 
     # Export to file
-    screenshot_filename = f"{filename_prefix}_{view_name}"
+    screenshot_filename = view_name
     unreal.RenderingLibrary.export_render_target(
         loaded_world,
         render_target,
@@ -373,13 +375,46 @@ def capture_single_view(
 # MAIN CAPTURE FUNCTION
 # ============================================
 
+def get_next_capture_folder(base_dir, folder_prefix):
+    """
+    Get the next available capture folder with auto-increment.
+
+    Creates folders like: base_dir/folder_prefix_1, folder_prefix_2, etc.
+
+    Returns:
+        str: Path to the new capture folder
+    """
+    os.makedirs(base_dir, exist_ok=True)
+
+    # Find existing folders with this prefix
+    existing = []
+    if os.path.exists(base_dir):
+        for name in os.listdir(base_dir):
+            if name.startswith(f"{folder_prefix}_"):
+                try:
+                    num = int(name[len(folder_prefix) + 1:])
+                    existing.append(num)
+                except ValueError:
+                    pass
+
+    # Get next number
+    next_num = max(existing, default=0) + 1
+
+    # Create and return new folder path
+    new_folder = os.path.join(base_dir, f"{folder_prefix}_{next_num}")
+    os.makedirs(new_folder, exist_ok=True)
+
+    return new_folder
+
+
 def take_orbital_screenshots(
     loaded_world,
     target_location=unreal.Vector(0, 0, 0),
     distance=500.0,
     output_dir=None,
-    filename_prefix="screenshot",
-    resolution=1920,
+    folder_prefix="capture",
+    resolution_width=800,
+    resolution_height=600,
     # View group toggles
     enable_perspective_views=True,
     enable_orthographic_views=True,
@@ -432,10 +467,13 @@ def take_orbital_screenshots(
         unreal.log_error("[ERROR] loaded_world is required")
         return {}
 
-    # Set default output directory
+    # Set default base output directory
     if output_dir is None:
         project_dir = unreal.Paths.project_dir()
         output_dir = os.path.join(project_dir, "Saved", "Screenshots", "Orbital")
+
+    # Create auto-incrementing capture folder
+    capture_dir = get_next_capture_folder(output_dir, folder_prefix)
 
     # Get actor subsystem
     actor_subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -458,13 +496,13 @@ def take_orbital_screenshots(
     unreal.log(f"  Level: {loaded_world.get_name()}")
     unreal.log(f"  Target: ({target_location.x}, {target_location.y}, {target_location.z})")
     unreal.log(f"  Distance: {distance}")
-    unreal.log(f"  Resolution: {resolution}x{resolution}")
+    unreal.log(f"  Resolution: {resolution_width}x{resolution_height}")
     unreal.log(f"  Views: {total_views} total")
     unreal.log(f"    - Perspective: {'ON' if enable_perspective_views else 'OFF'}")
     unreal.log(f"    - Orthographic: {'ON' if enable_orthographic_views else 'OFF'}")
     unreal.log(f"    - Bird's Eye: {'ON' if enable_birdseye_views else 'OFF'}")
     unreal.log(f"  Helpers: Grid={'ON' if enable_grid else 'OFF'}, Gizmo={'ON' if enable_gizmo else 'OFF'}")
-    unreal.log(f"  Output: {output_dir}")
+    unreal.log(f"  Output: {capture_dir}")
     unreal.log("=" * 60)
 
     # Results dictionary
@@ -486,11 +524,10 @@ def take_orbital_screenshots(
         unreal.log("\n--- PERSPECTIVE VIEWS ---")
 
         if organize_by_type:
-            persp_dir = os.path.join(output_dir, "perspective")
+            persp_dir = os.path.join(capture_dir, "perspective")
             os.makedirs(persp_dir, exist_ok=True)
         else:
-            persp_dir = output_dir
-            os.makedirs(persp_dir, exist_ok=True)
+            persp_dir = capture_dir
 
         for yaw, pitch, view_name, display_name in PERSPECTIVE_VIEWS:
             cam_loc, cam_rot = calculate_camera_transform(
@@ -501,67 +538,68 @@ def take_orbital_screenshots(
                 actor_subsystem, loaded_world,
                 cam_loc, cam_rot,
                 view_name, display_name,
-                persp_dir, filename_prefix, resolution,
+                persp_dir,
+                resolution_width, resolution_height,
                 is_orthographic=False
             )
 
             if saved_path:
                 results["perspective"].append(saved_path)
 
-        # Capture orthographic views
-        if enable_orthographic_views:
-            unreal.log("\n--- ORTHOGRAPHIC VIEWS ---")
+    # Capture orthographic views
+    if enable_orthographic_views:
+        unreal.log("\n--- ORTHOGRAPHIC VIEWS ---")
 
-            if organize_by_type:
-                ortho_dir = os.path.join(output_dir, "orthographic")
-                os.makedirs(ortho_dir, exist_ok=True)
-            else:
-                ortho_dir = output_dir
-                os.makedirs(ortho_dir, exist_ok=True)
+        if organize_by_type:
+            ortho_dir = os.path.join(capture_dir, "orthographic")
+            os.makedirs(ortho_dir, exist_ok=True)
+        else:
+            ortho_dir = capture_dir
 
-            for yaw, pitch, view_name, display_name in ORTHOGRAPHIC_VIEWS:
-                cam_loc, cam_rot = calculate_camera_transform(
-                    target_location, yaw, pitch, distance
-                )
+        for yaw, pitch, view_name, display_name in ORTHOGRAPHIC_VIEWS:
+            cam_loc, cam_rot = calculate_camera_transform(
+                target_location, yaw, pitch, distance
+            )
 
-                saved_path = capture_single_view(
-                    actor_subsystem, loaded_world,
-                    cam_loc, cam_rot,
-                    view_name, display_name,
-                    ortho_dir, filename_prefix, resolution,
-                    is_orthographic=True,
-                    ortho_width=ortho_width
-                )
+            saved_path = capture_single_view(
+                actor_subsystem, loaded_world,
+                cam_loc, cam_rot,
+                view_name, display_name,
+                ortho_dir,
+                resolution_width, resolution_height,
+                is_orthographic=True,
+                ortho_width=ortho_width
+            )
 
-                if saved_path:
-                    results["orthographic"].append(saved_path)
+            if saved_path:
+                results["orthographic"].append(saved_path)
 
-        # Capture bird's eye views
-        if enable_birdseye_views:
-            unreal.log("\n--- BIRD'S EYE VIEWS ---")
+    # Capture bird's eye views
+    if enable_birdseye_views:
+        unreal.log("\n--- BIRD'S EYE VIEWS ---")
 
-            if organize_by_type:
-                bird_dir = os.path.join(output_dir, "birdseye")
-                os.makedirs(bird_dir, exist_ok=True)
-            else:
-                bird_dir = output_dir
-                os.makedirs(bird_dir, exist_ok=True)
+        if organize_by_type:
+            bird_dir = os.path.join(capture_dir, "birdseye")
+            os.makedirs(bird_dir, exist_ok=True)
+        else:
+            bird_dir = capture_dir
 
-            for yaw, pitch, view_name, display_name in BIRDSEYE_VIEWS:
-                cam_loc, cam_rot = calculate_camera_transform(
-                    target_location, yaw, pitch, distance
-                )
+        for yaw, pitch, view_name, display_name in BIRDSEYE_VIEWS:
+            cam_loc, cam_rot = calculate_camera_transform(
+                target_location, yaw, pitch, distance
+            )
 
-                saved_path = capture_single_view(
-                    actor_subsystem, loaded_world,
-                    cam_loc, cam_rot,
-                    view_name, display_name,
-                    bird_dir, filename_prefix, resolution,
-                    is_orthographic=False
-                )
+            saved_path = capture_single_view(
+                actor_subsystem, loaded_world,
+                cam_loc, cam_rot,
+                view_name, display_name,
+                bird_dir,
+                resolution_width, resolution_height,
+                is_orthographic=False
+            )
 
-                if saved_path:
-                    results["birdseye"].append(saved_path)
+            if saved_path:
+                results["birdseye"].append(saved_path)
 
     # Summary
     total_saved = sum(len(v) for v in results.values())
@@ -572,10 +610,219 @@ def take_orbital_screenshots(
     unreal.log(f"    - Perspective: {len(results['perspective'])}")
     unreal.log(f"    - Orthographic: {len(results['orthographic'])}")
     unreal.log(f"    - Bird's Eye: {len(results['birdseye'])}")
-    unreal.log(f"  Output directory: {output_dir}")
+    unreal.log(f"  Output directory: {capture_dir}")
     unreal.log("=" * 60)
 
     return results
+
+
+# ============================================
+# PRESETS
+# ============================================
+
+# Preset configurations mapping preset names to view toggles
+# Format: {"perspective": bool, "orthographic": bool, "birdseye": bool}
+VIEW_PRESETS = {
+    "all": {
+        "perspective": True,
+        "orthographic": True,
+        "birdseye": True,
+    },
+    "perspective": {
+        "perspective": True,
+        "orthographic": False,
+        "birdseye": False,
+    },
+    "orthographic": {
+        "perspective": False,
+        "orthographic": True,
+        "birdseye": False,
+    },
+    "birdseye": {
+        "perspective": False,
+        "orthographic": False,
+        "birdseye": True,
+    },
+    "horizontal": {
+        "perspective": True,
+        "orthographic": False,
+        "birdseye": True,
+    },
+    "technical": {
+        "perspective": False,
+        "orthographic": True,
+        "birdseye": False,
+    },
+}
+
+
+def parse_resolution(value):
+    """Parse resolution string like '1280x720' or '1920'."""
+    if "x" in value.lower():
+        parts = value.lower().split("x")
+        if len(parts) != 2:
+            raise argparse.ArgumentTypeError(f"Invalid resolution format: {value}")
+        try:
+            return (int(parts[0]), int(parts[1]))
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"Invalid resolution: {value}")
+    else:
+        # Single value means square resolution
+        try:
+            size = int(value)
+            return (size, size)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"Invalid resolution: {value}")
+
+
+def parse_target(value):
+    """Parse target location string like '100+200+150'."""
+    parts = value.split("+")
+    if len(parts) != 3:
+        raise argparse.ArgumentTypeError(
+            f"Invalid target format: {value}. Expected X+Y+Z (e.g., 100+200+150)"
+        )
+    try:
+        return (float(parts[0]), float(parts[1]), float(parts[2]))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid target coordinates: {value}")
+
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Capture multi-angle screenshots for model validation in UE5",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Presets:
+  orthographic 6 orthographic views (front/back/left/right/top/bottom) [default]
+  perspective  4 horizontal perspective views only
+  birdseye     4 bird's eye views at 45-degree elevation
+  all          All views (perspective + orthographic + birdseye)
+  horizontal   Perspective + bird's eye views (no orthographic)
+  technical    Same as orthographic (for technical drawings)
+
+Examples:
+  # Capture only orthographic views
+  python orbital_screenshot.py --preset orthographic --level /Game/Maps/MyLevel
+
+  # Capture all views with custom target and distance
+  python orbital_screenshot.py --target 100+200+150 --distance 600
+
+  # Capture perspective views without helpers
+  python orbital_screenshot.py --preset perspective --no-grid --no-gizmo
+
+  # Capture with custom resolution
+  python orbital_screenshot.py -r 1920x1080 -t 0+0+100
+"""
+    )
+
+    # Preset selection
+    parser.add_argument(
+        "--preset", "-p",
+        type=str,
+        choices=list(VIEW_PRESETS.keys()),
+        default="orthographic",
+        help="View preset to use (default: orthographic)"
+    )
+
+    # Level path
+    parser.add_argument(
+        "--level", "-l",
+        type=str,
+        default="/Game/Maps/PunchingBagLevel",
+        help="Level path to load (default: /Game/Maps/PunchingBagLevel)"
+    )
+
+    # Target location
+    parser.add_argument(
+        "--target", "-t",
+        type=parse_target,
+        default="200+150+250",
+        help="Target location as X+Y+Z (default: 200+150+250)"
+    )
+
+    # Camera distance
+    parser.add_argument(
+        "--distance", "-d",
+        type=float,
+        default=400.0,
+        help="Camera distance from target (default: 400)"
+    )
+
+    # Resolution
+    parser.add_argument(
+        "--resolution", "-r",
+        type=parse_resolution,
+        default="800x600",
+        help="Screenshot resolution as WIDTHxHEIGHT or single value (default: 800x600)"
+    )
+
+    # Output settings
+    parser.add_argument(
+        "--output-dir", "-o",
+        type=str,
+        default=None,
+        help="Output directory (default: <project>/Saved/Screenshots/Orbital)"
+    )
+
+    parser.add_argument(
+        "--prefix",
+        type=str,
+        default="capture",
+        help="Folder prefix for auto-incrementing capture folders (default: capture)"
+    )
+
+    # Orthographic width
+    parser.add_argument(
+        "--ortho-width",
+        type=float,
+        default=600.0,
+        help="Orthographic capture width in world units (default: 600)"
+    )
+
+    # Helper toggles
+    parser.add_argument(
+        "--no-grid",
+        action="store_true",
+        help="Disable reference grid"
+    )
+
+    parser.add_argument(
+        "--grid-size",
+        type=float,
+        default=500.0,
+        help="Grid size in units (default: 500)"
+    )
+
+    parser.add_argument(
+        "--grid-divisions",
+        type=int,
+        default=10,
+        help="Number of grid divisions (default: 10)"
+    )
+
+    parser.add_argument(
+        "--no-gizmo",
+        action="store_true",
+        help="Disable axis gizmo indicator"
+    )
+
+    parser.add_argument(
+        "--gizmo-size",
+        type=float,
+        default=80.0,
+        help="Gizmo arrow length in units (default: 80)"
+    )
+
+    # Output organization
+    parser.add_argument(
+        "--flat",
+        action="store_true",
+        help="Save all screenshots in single folder (no subfolders by type)"
+    )
+
+    return parser.parse_args()
 
 
 # ============================================
@@ -583,70 +830,54 @@ def take_orbital_screenshots(
 # ============================================
 
 if __name__ == "__main__":
-    # ============================================
-    # CONFIGURATION - Modify these parameters
-    # ============================================
+    args = parse_args()
 
-    # Required: Level path
-    LEVEL_PATH = "/Game/Maps/PunchingBagLevel"
+    # Get preset configuration
+    preset_config = VIEW_PRESETS[args.preset]
 
-    # Target location to orbit around
-    TARGET = unreal.Vector(200, 150, 250)
-
-    # Camera distance from target
-    ORBIT_DISTANCE = 400.0
-
-    # Output settings
-    OUTPUT_PREFIX = "orbital"
-    RESOLUTION = 1920
-
-    # View group toggles (set to False to disable)
-    ENABLE_PERSPECTIVE = True   # 4 horizontal views
-    ENABLE_ORTHOGRAPHIC = True  # 6 orthographic views (front/back/left/right/top/bottom)
-    ENABLE_BIRDSEYE = True      # 4 bird's eye views at 45 degrees
-
-    # Orthographic capture width (world units visible in orthographic view)
-    ORTHO_WIDTH = 600.0
-
-    # Helper toggles
-    ENABLE_GRID = True          # Reference grid on ground
-    GRID_SIZE = 500.0           # Grid total size
-    GRID_DIVISIONS = 10         # Number of grid cells
-
-    ENABLE_GIZMO = True         # RGB axis indicator
-    GIZMO_SIZE = 80.0           # Axis arrow length
-
-    # Output organization
-    ORGANIZE_BY_TYPE = True     # Create subfolders (perspective/, orthographic/, birdseye/)
-
-    # ============================================
+    # Parse target (handle both string default and tuple from argparse)
+    if isinstance(args.target, str):
+        target = parse_target(args.target)
+    else:
+        target = args.target
+    TARGET = unreal.Vector(target[0], target[1], target[2])
 
     # Load level BEFORE transaction (load_map resets transaction history)
-    unreal.log(f"[INFO] Loading level: {LEVEL_PATH}")
-    loaded_world = unreal.EditorLoadingAndSavingUtils.load_map(LEVEL_PATH)
+    unreal.log(f"[INFO] Loading level: {args.level}")
+    loaded_world = unreal.EditorLoadingAndSavingUtils.load_map(args.level)
     if not loaded_world:
-        unreal.log_error(f"[ERROR] Failed to load level: {LEVEL_PATH}")
+        unreal.log_error(f"[ERROR] Failed to load level: {args.level}")
+        sys.exit(1)
+
+    unreal.log(f"[OK] Level loaded: {loaded_world.get_name()}")
+    unreal.log(f"[INFO] Using preset: {args.preset}")
+
+    # Parse resolution (handle both string default and tuple from argparse)
+    if isinstance(args.resolution, str):
+        resolution = parse_resolution(args.resolution)
     else:
-        unreal.log(f"[OK] Level loaded: {loaded_world.get_name()}")
+        resolution = args.resolution
 
-        with unreal.ScopedEditorTransaction("Orbital Screenshot Capture") as trans:
-            take_orbital_screenshots(
-                loaded_world=loaded_world,
-                target_location=TARGET,
-                distance=ORBIT_DISTANCE,
-                filename_prefix=OUTPUT_PREFIX,
-                resolution=RESOLUTION,
-                enable_perspective_views=ENABLE_PERSPECTIVE,
-                enable_orthographic_views=ENABLE_ORTHOGRAPHIC,
-                enable_birdseye_views=ENABLE_BIRDSEYE,
-                ortho_width=ORTHO_WIDTH,
-                enable_grid=ENABLE_GRID,
-                grid_size=GRID_SIZE,
-                grid_divisions=GRID_DIVISIONS,
-                enable_gizmo=ENABLE_GIZMO,
-                gizmo_size=GIZMO_SIZE,
-                organize_by_type=ORGANIZE_BY_TYPE,
-            )
+    with unreal.ScopedEditorTransaction("Orbital Screenshot Capture") as trans:
+        take_orbital_screenshots(
+            loaded_world=loaded_world,
+            target_location=TARGET,
+            distance=args.distance,
+            output_dir=args.output_dir,
+            folder_prefix=args.prefix,
+            resolution_width=resolution[0],
+            resolution_height=resolution[1],
+            enable_perspective_views=preset_config["perspective"],
+            enable_orthographic_views=preset_config["orthographic"],
+            enable_birdseye_views=preset_config["birdseye"],
+            ortho_width=args.ortho_width,
+            enable_grid=not args.no_grid,
+            grid_size=args.grid_size,
+            grid_divisions=args.grid_divisions,
+            enable_gizmo=not args.no_gizmo,
+            gizmo_size=args.gizmo_size,
+            organize_by_type=not args.flat,
+        )
 
-        unreal.SystemLibrary.execute_console_command(None, "TRANSACTION UNDO")
+    unreal.SystemLibrary.execute_console_command(None, "TRANSACTION UNDO")
 

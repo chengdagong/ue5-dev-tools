@@ -69,9 +69,7 @@ hooks:
             - Return {"ok": true} ONLY if all requirements are fully complete
             - Return {"ok": false, "reason": "your explanation"} if any required task is incomplete, unverified, or outstanding
             - If uncertain, return {"ok": false, "reason": "your explanation"} to ensure nothing is skipped
-
 ---
-
 # UE5 Python Script Development Guide
 
 A workflow-oriented guide for developing reliable UE5 Editor Python scripts, with emphasis on proper development cycles and common pitfalls.
@@ -79,15 +77,17 @@ A workflow-oriented guide for developing reliable UE5 Editor Python scripts, wit
 ## Development Workflow
 
 This workflow has two levels:
+
 1. **Planning phase** - Understand requirements and break into subtasks
 2. **Per-script cycle** - Each script goes through: Write → Test → Verify → Fix → Complete
 
 ** [Critical]** Enter Plan mode and complete Phase 1 and Phase 2 before coding any scripts.
----
+-------------------------------------------------------------------------------------------
 
 ### Phase 1: Requirements and Exploration
 
 Understand the task before coding:
+
 - Confirm script requirements
 - Search for existing similar scripts
 - Understand asset organization and naming conventions
@@ -100,12 +100,14 @@ Understand the task before coding:
 Enter plan mode. Break the task into smaller scripts. **Do not implement yet—just plan.**
 
 Always ask yourself:
+
 - Can I break this down further?
 - Can I test this smaller piece independently?
 
 Even if the user asks for "a script," break it into logical steps.
 
 **Example:** When user asks to "Create a level with blue sky, a pyramid, and a character looking at it", then plan these scripts:
+
 1. `create_sky_level.py` - Create level with blue sky
 2. `add_pyramid.py` - Add pyramid mesh
 3. `add_humanoid_character.py` - Add character
@@ -113,6 +115,7 @@ Even if the user asks for "a script," break it into logical steps.
 For each script, plan its purpose and verification steps. PS: Visual verificaiton can be skipped if no visual changes.
 
 A example plan:
+
 ```markdown
 - `create_sky_level.py`:
   - Purpose: Create a new level with a blue sky
@@ -131,7 +134,6 @@ A example plan:
 
 ```
 
-
 ** [Critical]** Exit plan mode and starts to implment scripts after Phase 1 and Phase 2 are completed. Execute plan without user confirmation.
 
 ### Phase 3: Script Implementation Cycle
@@ -141,6 +143,7 @@ Use your best knowledge of UE5 Python API and follow [best practices](#best-prac
 [Critical] Check out [API Reference](./references/api-references.md) for common pitfalls.
 
 Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
+
 - [Add gameplay tag to assets](./examples/add_gameplaytag_to_asset.py)
 - [Create blendspace](./examples/create_footwork_blendspace.py)
 - [Create level](./examples/create_sky_level.py)
@@ -153,10 +156,10 @@ Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
 
 If you are unsure about what UE5 Python API to use or encounter issues, use **ue5-api-expert** skill to investigate API usage.
 
-
 ### How to do Visual Confirmation based on screenshot
 
 **Required when script affects:**
+
 - Visual appearance (materials, meshes, lighting, UI)
 - Game behavior (character movement, AI, mechanics)
 - Level/world state (object placement, spawning)
@@ -165,36 +168,47 @@ If you are unsure about what UE5 Python API to use or encounter issues, use **ue
 
 **How to capture screenshots:**
 
+Use orbital_screenshot.py to capture multi-angle screenshots of the scene:
+
 ```bash
-python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screenshot.py" \
-  -p "<path-to-uproject>" \
-  -l "LevelName" \
-  -n 3 \
-  -o "screenshots/output_prefix"
+python "..\skills\ue5-python-executor\scripts\remote-execute.py" \
+  --project-path "<path-to-uproject>" \
+  --file ".\scripts\orbital_screenshot.py" \
+  --args "level=//Game/Path/To/Level,preset=orthographic,target=0+0+100,resolution=800x600,distance=500,output=screenshots,prefix=capture"
 ```
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `-p` | Project file path | Required |
-| `-l` | Level name (name only, no path/extension) | Required |
-| `-n` | Number of screenshots | 3 |
-| `-i` | Interval between screenshots (seconds) | 1.0 |
-| `-o` | Output filename prefix | `screenshot` |
-| `-r` | Game resolution | `1280x720` |
-| `--timeout` | Window wait timeout (seconds) | 20 |
-| `--load-timeout` | Game load timeout (seconds) | 20 |
 
-**Level name format:**
-- Correct: `"MainMenu", "Level_01", "TestMap", "MyLevel"`
+| Parameter    | Description                                                                             | Default       |
+| -------------- | ----------------------------------------------------------------------------------------- | --------------- |
+| `level`      | Level path (use`//Game/...` format to avoid path conversion)                            | Required      |
+| `preset`     | View preset:`all`, `perspective`, `orthographic`, `birdseye`, `horizontal`, `technical` | `orthographic`         |
+| `target`     | Target location as`X+Y+Z` format (e.g., `100+200+150`)                                  | `0+0+100`     |
+| `resolution` | Screenshot resolution as`WIDTHxHEIGHT` (e.g., `1280x720`)                               | `800x600`     |
+| `distance`   | Camera distance from target                                                             | `500`         |
+| `output`     | Output directory for screenshots                                                        | `screenshots` |
+| `prefix`     | Folder prefix (creates`output/prefix_1`, `prefix_2`, etc.)                              | `capture`     |
+
+**View presets:**
+
+- `all` - All angles (perspective + orthographic + birdseye) - 14 screenshots
+- `perspective` - 8 perspective angles around target
+- `orthographic` - 6 orthographic views (front, back, left, right, top, bottom)
+- `birdseye` - Bird's eye view from above
+- `horizontal` - Perspective + birdseye views
+- `technical` - Orthographic views only (same as `orthographic`)
+
+**Level path format:**
+
+- Use double slash prefix: `//Game/ThirdPerson/Maps/ThirdPersonMap`
+- This prevents MSYS/Git Bash path conversion issues
 
 **Analyze screenshots:**
-1. Read captured images
+
+1. Read captured images from the auto-incremented folder
 2. Check for expected changes and any visual artifacts
 3. Verify results match original requirements
 
-
 **Then proceed to the next script in your plan.**
-
 
 ## Best Practices
 
@@ -259,6 +273,7 @@ Choose the right method for your use case:
 - **`list_assets(directory)`** - List asset paths without loading (fast)
 
 Recommended workflow:
+
 1. Use `list_assets()` to get paths
 2. Use `find_asset()` to verify existence if needed
 3. Only `load_asset()` when you need to modify the asset
@@ -269,6 +284,7 @@ Recommended workflow:
 5. **Report results clearly** - Track success/failure counts; log meaningful progress
 6. **Verify visual results** - Use screenshot verification for visual/gameplay changes
 7. **Use ASCII-only output** - For cross-platform compatibility, use `[OK]`, `[ERROR]` instead of emojis
+
 ## Additional Resources
 
 For comprehensive guidance on specific aspects of UE5 Python development:

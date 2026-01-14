@@ -147,61 +147,47 @@ def find_correct_instance(
     expected_project_path: Optional[Path],
 ) -> bool:
     """
-    Find the correct UE5 instance, verifying project path when multiple same-name instances exist.
+    Find UE5 instance matching the expected project path.
 
     Args:
         executor: UE5RemoteExecution instance
-        expected_project_path: Expected .uproject file path (for verification)
+        expected_project_path: Expected .uproject file path
 
     Returns:
-        True if correct instance found and selected, False otherwise
+        True if matching instance found and selected, False otherwise
     """
     instances = executor.find_all_matching_instances()
 
     if not instances:
         return False
 
-    if len(instances) == 1:
-        # Only one instance, use it directly
-        executor.unreal_node_id = instances[0].get("source")
-        return True
-
-    # Multiple instances
     if not expected_project_path:
-        # No path specified, warn and use first
-        logger.warning(
-            f"Found {len(instances)} instances with same project name. "
-            f"Use --project-path to specify which one to connect to."
-        )
+        # No path specified, use first instance
         executor.unreal_node_id = instances[0].get("source")
         return True
 
-    # Path specified, verify each instance
-    logger.info(f"Found {len(instances)} instances, verifying project paths...")
+    # Check each instance for matching project path
     expected_resolved = expected_project_path.resolve()
 
-    for i, instance in enumerate(instances, 1):
+    for instance in instances:
         executor.unreal_node_id = instance.get("source")
-        logger.info(f"Checking instance {i}/{len(instances)}...")
 
         if not executor.open_connection():
-            logger.warning(f"  Could not connect to instance {i}")
             continue
 
         try:
             actual_path = executor.get_project_path()
             if actual_path:
                 actual_resolved = Path(actual_path).resolve()
-                logger.info(f"  Project path: {actual_path}")
-
                 if actual_resolved == expected_resolved:
-                    logger.info("  Match found!")
-                    executor.close_connection()
+                    logger.info(f"Found matching instance: {actual_path}")
                     return True
+                else:
+                    logger.debug(f"Instance project mismatch: {actual_path}")
         finally:
             executor.close_connection()
 
-    logger.error(f"No instance found matching project path: {expected_project_path}")
+    logger.info(f"No instance found for project: {expected_project_path}")
     return False
 
 

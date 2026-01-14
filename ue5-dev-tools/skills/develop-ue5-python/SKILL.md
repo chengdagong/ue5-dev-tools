@@ -138,6 +138,8 @@ A example plan:
 
 Use your best knowledge of UE5 Python API and follow [best practices](#best-practices) to implement script.
 
+[Critical] Check out [API Reference](./references/api-references.md) for common pitfalls.
+
 Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 - [Add gameplay tag to assets](./examples/add_gameplaytag_to_asset.py)
 - [Create blendspace](./examples/create_footwork_blendspace.py)
@@ -147,9 +149,10 @@ Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 
 Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
 
-#### Confirm API availability and usage with ue5-api-expert skill when necessary
+#### Use *ue5-api-expert* skill wisely
 
-If you encounter API issues, may use **ue5-api-expert** skill to investigate.
+If you are unsure about what UE5 Python API to use or encounter issues, use **ue5-api-expert** skill to investigate API usage.
+
 
 ### How to do Visual Confirmation based on screenshot
 

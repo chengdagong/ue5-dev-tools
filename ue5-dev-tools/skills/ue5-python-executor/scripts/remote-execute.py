@@ -15,6 +15,9 @@ Usage:
     # Execute a Python file
     python remote-exec --file /path/to/script.py --project-path /path/to/project.uproject
 
+    # Execute a Python file with arguments (key=value pairs, comma-separated, no spaces)
+    python remote-exec --file script.py --args "level=MyLevel,output=./screenshots,resolution=1920x1080"
+
     # Execute with project name filter
     python remote-exec --code "print('Hello')" --project-name MyProject
 
@@ -214,6 +217,9 @@ Examples:
   # Execute a Python file
   python remote-execute.py --file script.py --project-path /path/to/project.uproject
 
+  # Execute a Python file with arguments (key=value format)
+  python remote-execute.py --file script.py --args "level=MyLevel,output=./screenshots"
+
   # Filter by project name (auto-detected from CLAUDE_PROJECT_DIR)
   python remote-execute.py --code "print('Hello')"
 
@@ -286,6 +292,13 @@ Environment Variables:
         help="Disable automatic editor restart if connection is lost (likely crash)",
     )
 
+    parser.add_argument(
+        "--args",
+        type=str,
+        default="",
+        help="Arguments as key=value pairs, comma-separated, no spaces (e.g., 'level=MyLevel,output=./out')",
+    )
+
     args = parser.parse_args()
 
     # Handle detached mode
@@ -332,8 +345,37 @@ Environment Variables:
         command = args.code
         exec_type = UE5RemoteExecution.ExecTypes.EXECUTE_FILE
     else:
-        command = str(args.file.absolute())
-        exec_type = UE5RemoteExecution.ExecTypes.EXECUTE_FILE
+        file_path = args.file.absolute()
+
+        # Check if script arguments are provided
+        if args.args:
+            # Parse key=value pairs (comma-separated, no spaces after commas)
+            script_args = {}
+            for pair in args.args.split(","):
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
+                    script_args[key.strip()] = value
+                elif pair.strip():
+                    logger.warning(f"Ignoring invalid argument (no '='): {pair}")
+
+            # Read script content
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    script_content = f.read()
+            except Exception as e:
+                logger.error(f"Failed to read script file: {e}")
+                sys.exit(1)
+
+            # Inject ARGS dict at the beginning of the script
+            args_repr = repr(script_args)
+            command = f"ARGS = {args_repr}\n{script_content}"
+            exec_type = UE5RemoteExecution.ExecTypes.EXECUTE_FILE
+
+            if args.verbose:
+                logger.debug(f"Script arguments: {script_args}")
+        else:
+            command = str(file_path)
+            exec_type = UE5RemoteExecution.ExecTypes.EXECUTE_FILE
 
     # Parse multicast group
     try:

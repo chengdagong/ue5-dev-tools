@@ -163,10 +163,20 @@ If you are unsure about what UE5 Python API to use or encounter issues, use **ue
 - Visual appearance (materials, meshes, lighting, UI)
 - Game behavior (character movement, AI, mechanics)
 - Level/world state (object placement, spawning)
+- Blueprint structure (components, event graph, variables)
 
 **Skip when:** Changes are data-only, organizational, or user requests to skip.
 
-**How to capture screenshots:**
+**Choose the right screenshot tool:**
+
+| Tool | Use Case |
+|------|----------|
+| `orbital_screenshot.py` | Level/scene verification (meshes, lighting, world) |
+| `ue5_editor_screenshot.py` | Blueprint/asset editor verification (components, graphs) |
+
+---
+
+#### Level/Scene Screenshots
 
 Use *ue5-python-executor* skill to run [./scripts/orbital_screenshot.py](./scripts/orbital_screenshot.py) to capture multi-angle screenshots of the scene. orbital_screenshots accepts the following arguments:
 
@@ -203,6 +213,65 @@ Use *ue5-python-executor* skill to run [./scripts/orbital_screenshot.py](./scrip
 1. Read captured images from the auto-incremented folder
 2. Check for expected changes and any visual artifacts
 3. Verify results match original requirements
+
+---
+
+#### Blueprint/Asset Editor Screenshots
+
+Use *ue5-python-executor* skill to run [./scripts/ue5_editor_screenshot.py](./scripts/ue5_editor_screenshot.py) to capture screenshots of Blueprint editors, Animation Blueprints, or other asset editors.
+
+**When to use:**
+
+- Verify Blueprint component changes (added/removed components)
+- Verify Animation Blueprint graph modifications
+- Verify material/texture asset changes
+- Any asset editor visual verification
+
+**Arguments:**
+
+```
+--args "asset=//Game/Path/To/Asset,output=C://Screenshots//screenshot.png,delay=2.0,tab=1"
+```
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `asset` | Asset path (use `//Game/...` format) | **Required** |
+| `output` | Output file path (use `//` for path separators) | **Required** |
+| `delay` | Seconds to wait for editor to render | `3.0` |
+| `tab` | Tab number to switch to (1-9) | `1` (Viewport) |
+| `no-tab` | Set to `true` to skip tab switching | `false` |
+| `no-capture-ue5-only` | Set to `true` to capture full screen | `false` |
+
+**Tab numbers in Blueprint Editor:**
+
+- `1` - Viewport (3D preview)
+- `2` - Construction Script
+- `3` - Event Graph
+
+**Example usage:**
+
+```bash
+# Capture Blueprint viewport (default)
+python remote-execute.py --file scripts/ue5_editor_screenshot.py \
+    --args "asset=//Game/Blueprints/BP_MyActor,output=C://Screenshots//bp_viewport.png"
+
+# Capture Event Graph (tab 3)
+python remote-execute.py --file scripts/ue5_editor_screenshot.py \
+    --args "asset=//Game/Blueprints/BP_MyActor,output=C://Screenshots//bp_eventgraph.png,tab=3"
+
+# Capture Animation Blueprint
+python remote-execute.py --file scripts/ue5_editor_screenshot.py \
+    --args "asset=//Game/Animations/ABP_Character,output=C://Screenshots//abp.png,tab=2"
+```
+
+**Workflow:**
+
+1. Script opens the asset editor
+2. Moves UE5 window to extended display (for high-resolution capture)
+3. Switches to specified tab
+4. Captures screenshot
+5. Closes the editor automatically
+6. Restores window position
 
 **Then proceed to the next script in your plan.**
 

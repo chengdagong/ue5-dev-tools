@@ -1,6 +1,6 @@
 ---
 name: ue5-screenshot
-description: UE5 visual verification screenshot toolkit with three capture methods for validating script execution results. Use this skill when you need to verify visual effects of UE5 Python scripts.
+description: UE5 visual verification screenshot toolkit with three capture methods for validating script execution results. Use when scripts affect visuals, gameplay, components in level, blueprints, or runtime.
 ---
 
 # UE5 Screenshot Tools

@@ -1,0 +1,23 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0.0",
+	"FriendlyName": "Python Blueprint Utils",
+	"Description": "Provides Python-accessible utility functions for Blueprint component manipulation, including socket attachment for SCS_Node properties.",
+	"Category": "Scripting",
+	"CreatedBy": "URF Team",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "PythonBlueprintUtils",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}

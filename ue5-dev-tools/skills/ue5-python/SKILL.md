@@ -243,6 +243,49 @@ Recommended workflow:
 6. **Verify visual results** - Use screenshot verification for visual/gameplay changes
 7. **Use ASCII-only output** - For cross-platform compatibility, use `[OK]`, `[ERROR]` instead of emojis
 
+## PythonBlueprintUtils Plugin
+
+A bundled UE5 plugin that exposes C++ functionality not available in the Python API. Install this plugin when you need to:
+
+- **Set socket/bone attachment for Blueprint components** - The Python API cannot set `SCS_Node.AttachToName`
+- **Attach collision components to skeletal mesh bones** in Blueprints
+
+### Installation
+
+```bash
+# Install plugin to project (auto-detects from CLAUDE_PROJECT_DIR)
+python scripts/install_blueprint_utils_plugin.py --project /path/to/project --enable
+
+# Or specify project path explicitly
+python scripts/install_blueprint_utils_plugin.py -p /path/to/MyProject.uproject -e
+```
+
+### Usage in Python Scripts
+
+After installing and rebuilding the project:
+
+```python
+import unreal
+
+# Get subsystem and handles
+subsystem = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+handles = subsystem.k2_gather_subobject_data_for_blueprint(blueprint)
+
+# Attach a component to a bone/socket
+unreal.PythonBlueprintComponentLibrary.setup_component_attachment(
+    child_handle,      # Component to attach
+    parent_handle,     # Parent component (e.g., SkeletalMeshComponent)
+    "bone_name"        # Socket/bone name
+)
+
+# Or just set the socket name directly
+unreal.PythonBlueprintComponentLibrary.set_component_socket_attachment(
+    handle,
+    "bone_name"
+)
+```
+
+
 ## Additional Resources
 
 For comprehensive guidance on specific aspects of UE5 Python development:

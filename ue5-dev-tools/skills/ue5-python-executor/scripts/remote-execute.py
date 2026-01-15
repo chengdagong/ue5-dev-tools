@@ -175,6 +175,7 @@ def find_correct_instance(
         if not executor.open_connection():
             continue
 
+        actual_path = None
         try:
             actual_path = executor.get_project_path()
             if actual_path:
@@ -184,7 +185,10 @@ def find_correct_instance(
                     return True
                 else:
                     logger.debug(f"Instance project mismatch: {actual_path}")
-        finally:
+        except Exception as e:
+            logger.debug(f"Error checking instance: {e}")
+
+        if not (actual_path and Path(actual_path).resolve() == expected_resolved):
             executor.close_connection()
 
     logger.info(f"No instance found for project: {expected_project_path}")
@@ -283,8 +287,8 @@ Environment Variables:
         type=str,
         default="",
         help="Arguments as key=value pairs, comma-separated. Converted to sys.argv for argparse. "
-             "Boolean flags: key=true adds --key, key=false skips. "
-             "(e.g., 'preset=orthographic,no-grid=true,resolution=1920x1080')",
+        "Boolean flags: key=true adds --key, key=false skips. "
+        "(e.g., 'preset=orthographic,no-grid=true,resolution=1920x1080')",
     )
 
     args = parser.parse_args()

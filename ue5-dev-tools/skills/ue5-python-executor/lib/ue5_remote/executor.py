@@ -36,10 +36,12 @@ class UE5RemoteExecution:
         EXECUTE_STATEMENT = "ExecuteStatement"
         EVALUATE_STATEMENT = "EvaluateStatement"
 
-    def __init__(self,
-                 multicast_group: Tuple[str, int] = ("239.0.0.1", 6766),
-                 multicast_bind_address: str = "0.0.0.0",
-                 project_name: str = ""):
+    def __init__(
+        self,
+        multicast_group: Tuple[str, int] = ("239.0.0.1", 6766),
+        multicast_bind_address: str = "0.0.0.0",
+        project_name: str = "",
+    ):
         self.multicast_group = multicast_group
         self.multicast_bind_address = multicast_bind_address
         self.project_name = project_name
@@ -55,13 +57,15 @@ class UE5RemoteExecution:
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 0)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if hasattr(socket, 'SO_REUSEPORT'):
+        if hasattr(socket, "SO_REUSEPORT"):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         sock.bind((self.multicast_bind_address, self.multicast_group[1]))
 
         membership = socket.inet_aton(self.multicast_group[0])
         bind_addr = socket.inet_aton(self.multicast_bind_address)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership + bind_addr)
+        sock.setsockopt(
+            socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership + bind_addr
+        )
 
         return sock
 
@@ -70,9 +74,11 @@ class UE5RemoteExecution:
         data = json.dumps(message).encode()
         sock.sendto(data, self.multicast_group)
 
-    def _receive_messages(self, sock: socket.socket, message_type: str) -> Optional[Dict]:
+    def _receive_messages(
+        self, sock: socket.socket, message_type: str
+    ) -> Optional[Dict]:
         """Receive and parse JSON messages from socket."""
-        data_received = b''
+        data_received = b""
 
         try:
             while True:
@@ -82,7 +88,7 @@ class UE5RemoteExecution:
 
                     try:
                         json_data = json.loads(data_received)
-                        data_received = b''
+                        data_received = b""
                     except json.JSONDecodeError:
                         continue
 
@@ -103,8 +109,9 @@ class UE5RemoteExecution:
 
         return None
 
-    def _receive_all_messages(self, sock: socket.socket, message_type: str,
-                             timeout: float = 1.0) -> List[Dict]:
+    def _receive_all_messages(
+        self, sock: socket.socket, message_type: str, timeout: float = 1.0
+    ) -> List[Dict]:
         """
         Collect ALL responses from multicast socket during timeout window.
 
@@ -135,7 +142,9 @@ class UE5RemoteExecution:
                             continue
 
                     # Avoid duplicates by checking node_id
-                    if not any(r.get("source") == json_data.get("source") for r in responses):
+                    if not any(
+                        r.get("source") == json_data.get("source") for r in responses
+                    ):
                         responses.append(json_data)
 
                 except socket.timeout:
@@ -165,7 +174,7 @@ class UE5RemoteExecution:
                 "version": self.PROTOCOL_VERSION,
                 "magic": self.MAGIC,
                 "source": "python_executor",
-                "type": "ping"
+                "type": "ping",
             }
 
             self._send_message(self.mcast_sock, ping_msg)
@@ -193,9 +202,13 @@ class UE5RemoteExecution:
             engine = selected.get("data", {}).get("engine_version", "Unknown")
 
             if len(all_pongs) > 1:
-                logger.warning(f"{len(all_pongs)} instances discovered, selected first match")
+                logger.warning(
+                    f"{len(all_pongs)} instances discovered, selected first match"
+                )
 
-            logger.info(f"Connecting to: {project} (UE {engine}) [node: {self.unreal_node_id}]")
+            logger.info(
+                f"Connecting to: {project} (UE {engine}) [node: {self.unreal_node_id}]"
+            )
             return True
 
         except Exception as e:
@@ -220,7 +233,7 @@ class UE5RemoteExecution:
                 "version": self.PROTOCOL_VERSION,
                 "magic": self.MAGIC,
                 "source": "python_executor",
-                "type": "ping"
+                "type": "ping",
             }
             self._send_message(self.mcast_sock, ping_msg)
 
@@ -252,7 +265,7 @@ class UE5RemoteExecution:
 
             # Get available port
             with socket.socket() as s:
-                s.bind(('', 0))
+                s.bind(("", 0))
                 cmd_port = s.getsockname()[1]
 
             # Send open connection message
@@ -262,10 +275,7 @@ class UE5RemoteExecution:
                 "magic": self.MAGIC,
                 "source": "python_executor",
                 "dest": self.unreal_node_id,
-                "data": {
-                    "command_ip": "127.0.0.1",
-                    "command_port": cmd_port
-                }
+                "data": {"command_ip": "127.0.0.1", "command_port": cmd_port},
             }
 
             self._send_message(self.mcast_sock, open_msg)
@@ -287,9 +297,9 @@ class UE5RemoteExecution:
             logger.error(f"Failed to open connection: {e}")
             return False
 
-    def execute_command(self, command: str,
-                       exec_type: str = None,
-                       timeout: float = 5.0) -> Dict[str, Any]:
+    def execute_command(
+        self, command: str, exec_type: str = None, timeout: float = 5.0
+    ) -> Dict[str, Any]:
         """
         Execute Python command in UE5.
 
@@ -315,8 +325,8 @@ class UE5RemoteExecution:
                 "data": {
                     "command": command,
                     "unattended": True,
-                    "exec_mode": exec_type
-                }
+                    "exec_mode": exec_type,
+                },
             }
 
             data = json.dumps(cmd_msg).encode()
@@ -324,7 +334,7 @@ class UE5RemoteExecution:
 
             # Receive result
             self.cmd_connection.settimeout(timeout)
-            data_received = b''
+            data_received = b""
             result_data = None
 
             while True:
@@ -334,7 +344,7 @@ class UE5RemoteExecution:
 
                     try:
                         json_data = json.loads(data_received)
-                        data_received = b''
+                        data_received = b""
                     except json.JSONDecodeError:
                         continue
 
@@ -358,24 +368,15 @@ class UE5RemoteExecution:
                     "success": success,
                     "result": result,
                     "output": output,
-                    "raw": result_data
+                    "raw": result_data,
                 }
             else:
-                return {
-                    "success": False,
-                    "error": "No response from UE5",
-                    "output": []
-                }
+                return {"success": False, "error": "No response from UE5", "output": []}
 
         except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError) as e:
             # Connection errors likely indicate editor crash
             logger.error(f"Connection lost during command execution: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "crashed": True,
-                "output": []
-            }
+            return {"success": False, "error": str(e), "crashed": True, "output": []}
         except OSError as e:
             # OS-level socket errors (e.g., "Connection reset by peer")
             if "connection" in str(e).lower() or "broken pipe" in str(e).lower():
@@ -384,7 +385,7 @@ class UE5RemoteExecution:
                     "success": False,
                     "error": str(e),
                     "crashed": True,
-                    "output": []
+                    "output": [],
                 }
             else:
                 logger.error(f"Command execution failed: {e}")
@@ -392,16 +393,11 @@ class UE5RemoteExecution:
                     "success": False,
                     "error": str(e),
                     "crashed": False,
-                    "output": []
+                    "output": [],
                 }
         except Exception as e:
             logger.error(f"Command execution failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "crashed": False,
-                "output": []
-            }
+            return {"success": False, "error": str(e), "crashed": False, "output": []}
 
     def get_project_path(self, timeout: float = 5.0) -> Optional[str]:
         """
@@ -412,7 +408,7 @@ class UE5RemoteExecution:
         Returns:
             Project file path (e.g. "D:/Code/TestFlight/TestFlight.uproject") or None
         """
-        code = "import unreal; print(unreal.Paths.get_project_file_path())"
+        code = "import unreal; rel_path = unreal.Paths.get_project_file_path(); print(unreal.Paths.convert_relative_path_to_full(rel_path))"
         result = self.execute_command(
             code, exec_type=self.ExecTypes.EXECUTE_STATEMENT, timeout=timeout
         )
@@ -426,9 +422,7 @@ class UE5RemoteExecution:
 
                 output_str = output_str.strip()
                 if output_str and (
-                    ".uproject" in output_str
-                    or "/" in output_str
-                    or "\\" in output_str
+                    ".uproject" in output_str or "/" in output_str or "\\" in output_str
                 ):
                     return output_str
 
@@ -443,7 +437,7 @@ class UE5RemoteExecution:
                     "version": self.PROTOCOL_VERSION,
                     "magic": self.MAGIC,
                     "source": "python_executor",
-                    "dest": self.unreal_node_id
+                    "dest": self.unreal_node_id,
                 }
 
                 self._send_message(self.mcast_sock, close_msg)

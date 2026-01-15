@@ -1,5 +1,5 @@
 ---
-name: develop-ue5-python
+name: ue5-python
 description: Comprehensive guide for developing UE5 Editor Python scripts with proper workflow and best practices. Use when the user wants to (1) write a UE5 Python script, (2) mentions writing a script in a UE5 project context, or (3) has a requirement that Claude identifies can be fulfilled by a UE5 Python script (e.g., batch processing game assets, automating editor tasks).
 allowedTools:
   - tool: Read
@@ -173,6 +173,7 @@ If you are unsure about what UE5 Python API to use or encounter issues, use **ue
 |------|----------|
 | `orbital_screenshot.py` | Level/scene verification (meshes, lighting, world) |
 | `ue5_editor_screenshot.py` | Blueprint/asset editor verification (components, graphs) |
+| `take_game_screenshot.py` | Runtime/gameplay verification (standalone game mode) |
 
 ---
 
@@ -274,6 +275,60 @@ python remote-execute.py --file scripts/ue5_editor_screenshot.py \
 6. Restores window position
 
 **Then proceed to the next script in your plan.**
+
+---
+
+#### Standalone Game Screenshots
+
+Use [./scripts/take_game_screenshot.py](./scripts/take_game_screenshot.py) to capture screenshots of a running standalone game instance. This tool launches the game in windowed mode, waits for it to load, captures screenshots, and terminates the game.
+
+**When to use:**
+
+- Verify runtime gameplay behavior (player spawning, AI, physics)
+- Verify game-mode specific rendering (post-processing, game UI)
+- Test level loading and initialization
+- Capture in-game visuals without editor UI
+
+**Note:** This script runs outside of UE5 Editor context - call it directly with Python, not via ue5-python-executor.
+
+**Arguments:**
+
+```bash
+python take_game_screenshot.py -p PROJECT_PATH -l LEVEL_NAME [options]
+```
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `-p, --project` | Path to .uproject file | **Required** |
+| `-l, --level` | Level name only (e.g., `PyramidLevel`), no path | **Required** |
+| `-n, --count` | Number of screenshots to capture | `3` |
+| `-i, --interval` | Interval between screenshots (seconds) | `1.0` |
+| `-o, --output` | Output filename prefix | `screenshot` |
+| `-r, --resolution` | Game resolution (e.g., `1920x1080`) | `1280x720` |
+| `--ue-root` | UE5 engine root directory | `C:\Program Files\Epic Games\UE_5.7` |
+| `--timeout` | Window wait timeout (seconds) | `20` |
+| `--load-timeout` | Game load wait timeout (seconds) | `20` |
+| `--wait` | Wait for user input before closing game | `false` |
+
+**Example usage:**
+
+```bash
+# Basic usage - capture 3 screenshots of PyramidLevel
+python take_game_screenshot.py -p "D:/Projects/MyGame/MyGame.uproject" -l PyramidLevel -o screenshots/game
+
+# Higher resolution with more screenshots
+python take_game_screenshot.py -p "D:/Projects/MyGame/MyGame.uproject" -l MainMenu -r 1920x1080 -n 5 -i 2.0 -o screenshots/menu
+
+# Custom UE5 installation
+python take_game_screenshot.py -p "D:/Projects/MyGame/MyGame.uproject" -l TestLevel --ue-root "D:/Epic/UE_5.5"
+```
+
+**Important notes:**
+
+- Level parameter must be name only (e.g., `PyramidLevel`), not full path (`/Game/Maps/PyramidLevel`)
+- Game window is launched offscreen to avoid interfering with your work
+- Black frames are automatically skipped
+- Output files are named `{prefix}_1.png`, `{prefix}_2.png`, etc.
 
 ## Best Practices
 

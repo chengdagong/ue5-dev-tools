@@ -181,7 +181,9 @@ def find_uproject_file(start_dir: str | None = None) -> str | None:
     # Try to use ue5_utils if available
     try:
         import sys
-        lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib")
+        # Navigate from scripts/ up to skills/, then into ue5-dev-kit/lib/
+        lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "ue5-dev-kit", "lib")
+        lib_path = os.path.normpath(lib_path)
         if lib_path not in sys.path:
             sys.path.insert(0, lib_path)
         from ue5_utils import find_ue5_project_root  # type: ignore  # noqa: E402

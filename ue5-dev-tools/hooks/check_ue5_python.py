@@ -50,7 +50,7 @@ def main():
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "allow",
-                "permissionDecisionReason": "UE5 Python Script Detected - Please use the develop-ue5-python skill to follow the best-practice workflow if you're not using it."
+                "permissionDecisionReason": "UE5 Python Script Detected - Please use the ue5-python skill to follow the best-practice workflow if you're not using it."
             }
         }
         print(json.dumps(output))

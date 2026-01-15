@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 # Add ue5_utils to path
-_ue5_utils_path = Path(__file__).parent.parent.parent / "ue5-dev-kit" / "lib"
+_ue5_utils_path = Path(__file__).parent.parent.parent / "lib"
 if str(_ue5_utils_path) not in sys.path:
     sys.path.insert(0, str(_ue5_utils_path))
 

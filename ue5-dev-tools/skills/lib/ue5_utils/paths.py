@@ -244,14 +244,14 @@ def find_skills_root(start_path: Optional[Path] = None) -> Optional[Path]:
 
     for _ in range(10):
         executor_path = current / "ue5-python-executor"
-        dev_kit_path = current / "ue5-dev-kit"
+        lib_path = current / "lib"
 
         if executor_path.exists() and executor_path.is_dir():
             if (executor_path / "scripts" / "remote-execute.py").exists():
                 return current
 
-        if dev_kit_path.exists() and dev_kit_path.is_dir():
-            if (dev_kit_path / "lib" / "ue5_utils").exists():
+        if lib_path.exists() and lib_path.is_dir():
+            if (lib_path / "ue5_utils").exists():
                 return current
 
         parent = current.parent

@@ -44,7 +44,7 @@ from typing import Optional, Tuple, Dict, Any
 lib_path = Path(__file__).parent.parent / "lib"
 sys.path.insert(0, str(lib_path))
 
-ue5_utils_path = Path(__file__).parent.parent.parent / "ue5-dev-kit" / "lib"
+ue5_utils_path = Path(__file__).parent.parent.parent / "lib"
 sys.path.insert(0, str(ue5_utils_path))
 
 from ue5_remote import UE5RemoteExecution

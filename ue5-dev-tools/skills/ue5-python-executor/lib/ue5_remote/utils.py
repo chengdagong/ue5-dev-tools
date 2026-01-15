@@ -3,14 +3,14 @@
 UE5 Development Tools - Path Resolution Utilities
 
 This module re-exports utilities from ue5_utils for backward compatibility.
-The canonical implementation is in ue5-dev-kit/lib/ue5_utils/.
+The canonical implementation is in lib/ue5_utils/.
 """
 
 import sys
 from pathlib import Path
 
 # Add ue5_utils to path
-_ue5_utils_path = Path(__file__).parent.parent.parent.parent / "ue5-dev-kit" / "lib"
+_ue5_utils_path = Path(__file__).parent.parent.parent.parent / "lib"
 if str(_ue5_utils_path) not in sys.path:
     sys.path.insert(0, str(_ue5_utils_path))
 

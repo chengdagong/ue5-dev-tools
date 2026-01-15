@@ -26,10 +26,10 @@
 
 ### Step 2: 执行截图工具
 
-使用 ue5-dev-kit 中的 `take_game_screenshot.py`:
+使用 ue5-screenshot 中的 `take_game_screenshot.py`:
 
 ```bash
-python "d:\Code\ue5-dev-tools\ue5-dev-tools\skills\ue5-dev-kit\take_game_screenshot.py" \
+python "ue5-screenshot/scripts/take_game_screenshot.py" \
   -p "<path-to-uproject>" \
   -l "<level-name-only>" \
   -n 3 \

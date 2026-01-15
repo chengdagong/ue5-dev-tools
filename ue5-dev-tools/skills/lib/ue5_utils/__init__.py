@@ -7,7 +7,7 @@ All functions use filesystem-based discovery.
 
 Usage:
     import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "ue5-dev-kit" / "lib"))
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "lib"))
     from ue5_utils import find_ue5_project_root, find_ue5_editor
 """
 

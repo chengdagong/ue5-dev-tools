@@ -149,7 +149,7 @@ Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 - [Create level](./examples/create_sky_level.py)
 - [Customize sky atmosphere, fog, lighting and creating meshes](./examples/create_dark_pyramid_level.py)
 - [Create blueprints, adding physical constraints](./examples/create_punching_bag_blueprint.py)
-- [Start PIE, using tick-based method to take runtime screenshots](./examples/pie_screenshot_capturer.py) ]
+- [PIE screenshot capturer with multi-angle support (front, side, top, perspective)](./examples/pie_screenshot_capturer.py)
 
 Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
 

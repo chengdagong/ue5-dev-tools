@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class PythonBlueprintUtils : ModuleRules
+public class ExtraPythonAPIs : ModuleRules
 {
-	public PythonBlueprintUtils(ReadOnlyTargetRules Target) : base(Target)
+	public ExtraPythonAPIs(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 

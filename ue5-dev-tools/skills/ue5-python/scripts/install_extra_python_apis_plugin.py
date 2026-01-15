@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Install PythonBlueprintUtils plugin to a UE5 project.
+Install ExtraPythonAPIs plugin to a UE5 project.
 
 This script copies the plugin to the project's Plugins directory and
 optionally enables it in the .uproject file.
@@ -19,8 +19,8 @@ from pathlib import Path
 
 # Get the plugin source directory (relative to this script)
 SCRIPT_DIR = Path(__file__).parent.resolve()
-PLUGIN_SOURCE = SCRIPT_DIR.parent / "plugin" / "PythonBlueprintUtils"
-PLUGIN_NAME = "PythonBlueprintUtils"
+PLUGIN_SOURCE = SCRIPT_DIR.parent / "plugin" / "ExtraPythonAPIs"
+PLUGIN_NAME = "ExtraPythonAPIs"
 
 
 def find_uproject(project_path: Path) -> Path | None:
@@ -136,7 +136,7 @@ def enable_plugin_in_uproject(uproject: Path) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Install PythonBlueprintUtils plugin to a UE5 project"
+        description="Install ExtraPythonAPIs plugin to a UE5 project"
     )
     parser.add_argument(
         "--project", "-p",

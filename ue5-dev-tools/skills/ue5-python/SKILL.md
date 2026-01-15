@@ -243,7 +243,7 @@ Recommended workflow:
 6. **Verify visual results** - Use screenshot verification for visual/gameplay changes
 7. **Use ASCII-only output** - For cross-platform compatibility, use `[OK]`, `[ERROR]` instead of emojis
 
-## PythonBlueprintUtils Plugin
+## ExtraPythonAPIs Plugin
 
 A bundled UE5 plugin that exposes C++ functionality not available in the Python API. Install this plugin when you need to:
 
@@ -254,10 +254,10 @@ A bundled UE5 plugin that exposes C++ functionality not available in the Python 
 
 ```bash
 # Install plugin to project (auto-detects from CLAUDE_PROJECT_DIR)
-python scripts/install_blueprint_utils_plugin.py --project /path/to/project --enable
+python scripts/install_extra_python_apis_plugin.py --project /path/to/project --enable
 
 # Or specify project path explicitly
-python scripts/install_blueprint_utils_plugin.py -p /path/to/MyProject.uproject -e
+python scripts/install_extra_python_apis_plugin.py -p /path/to/MyProject.uproject -e
 ```
 
 ### Usage in Python Scripts
@@ -272,14 +272,14 @@ subsystem = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
 handles = subsystem.k2_gather_subobject_data_for_blueprint(blueprint)
 
 # Attach a component to a bone/socket
-unreal.PythonBlueprintComponentLibrary.setup_component_attachment(
+unreal.ExBlueprintComponentLibrary.setup_component_attachment(
     child_handle,      # Component to attach
     parent_handle,     # Parent component (e.g., SkeletalMeshComponent)
     "bone_name"        # Socket/bone name
 )
 
 # Or just set the socket name directly
-unreal.PythonBlueprintComponentLibrary.set_component_socket_attachment(
+unreal.ExBlueprintComponentLibrary.set_component_socket_attachment(
     handle,
     "bone_name"
 )

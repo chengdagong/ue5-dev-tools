@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SubobjectDataHandle.h"
-#include "PythonBlueprintComponentLibrary.generated.h"
+#include "ExBlueprintComponentLibrary.generated.h"
 
 class UBlueprint;
 struct FSubobjectDataHandle;
@@ -18,7 +18,7 @@ struct FSubobjectDataHandle;
  * for Blueprint components (SCS_Node.AttachToName) is not possible.
  */
 UCLASS()
-class PYTHONBLUEPRINTUTILS_API UPythonBlueprintComponentLibrary : public UBlueprintFunctionLibrary
+class EXTRAPYTHONAPIS_API UExBlueprintComponentLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 

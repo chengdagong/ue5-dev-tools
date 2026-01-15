@@ -1,29 +1,29 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "PythonBlueprintComponentLibrary.h"
+#include "ExBlueprintComponentLibrary.h"
 #include "SubobjectData.h"
 #include "SubobjectDataSubsystem.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogPythonBlueprintUtils, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(LogExtraPythonAPIs, Log, All);
 
-bool UPythonBlueprintComponentLibrary::SetComponentSocketAttachment(const FSubobjectDataHandle& Handle, FName SocketName)
+bool UExBlueprintComponentLibrary::SetComponentSocketAttachment(const FSubobjectDataHandle& Handle, FName SocketName)
 {
 	// Get the SubobjectData from the handle
 	FSubobjectData* Data = Handle.GetData();
 	if (!Data)
 	{
-		UE_LOG(LogPythonBlueprintUtils, Warning, TEXT("SetComponentSocketAttachment: Invalid handle"));
+		UE_LOG(LogExtraPythonAPIs, Warning, TEXT("SetComponentSocketAttachment: Invalid handle"));
 		return false;
 	}
 
 	// Use the public SetSocketName method which properly sets SCS_Node->AttachToName
 	Data->SetSocketName(SocketName);
 
-	UE_LOG(LogPythonBlueprintUtils, Log, TEXT("SetComponentSocketAttachment: Set socket to '%s'"), *SocketName.ToString());
+	UE_LOG(LogExtraPythonAPIs, Log, TEXT("SetComponentSocketAttachment: Set socket to '%s'"), *SocketName.ToString());
 	return true;
 }
 
-FName UPythonBlueprintComponentLibrary::GetComponentSocketAttachment(const FSubobjectDataHandle& Handle)
+FName UExBlueprintComponentLibrary::GetComponentSocketAttachment(const FSubobjectDataHandle& Handle)
 {
 	FSubobjectData* Data = Handle.GetData();
 	if (!Data)
@@ -35,7 +35,7 @@ FName UPythonBlueprintComponentLibrary::GetComponentSocketAttachment(const FSubo
 	return Data->GetSocketFName();
 }
 
-bool UPythonBlueprintComponentLibrary::SetupComponentAttachment(
+bool UExBlueprintComponentLibrary::SetupComponentAttachment(
 	const FSubobjectDataHandle& ChildHandle,
 	const FSubobjectDataHandle& ParentHandle,
 	FName SocketName
@@ -45,7 +45,7 @@ bool UPythonBlueprintComponentLibrary::SetupComponentAttachment(
 	FSubobjectData* ChildData = ChildHandle.GetData();
 	if (!ChildData)
 	{
-		UE_LOG(LogPythonBlueprintUtils, Warning, TEXT("SetupComponentAttachment: Invalid child handle"));
+		UE_LOG(LogExtraPythonAPIs, Warning, TEXT("SetupComponentAttachment: Invalid child handle"));
 		return false;
 	}
 
@@ -53,7 +53,7 @@ bool UPythonBlueprintComponentLibrary::SetupComponentAttachment(
 	FSubobjectData* ParentData = ParentHandle.GetData();
 	if (!ParentData)
 	{
-		UE_LOG(LogPythonBlueprintUtils, Warning, TEXT("SetupComponentAttachment: Invalid parent handle"));
+		UE_LOG(LogExtraPythonAPIs, Warning, TEXT("SetupComponentAttachment: Invalid parent handle"));
 		return false;
 	}
 
@@ -66,6 +66,6 @@ bool UPythonBlueprintComponentLibrary::SetupComponentAttachment(
 	// Then set the socket name separately (this properly sets SCS_Node->AttachToName)
 	ChildData->SetSocketName(SocketName);
 
-	UE_LOG(LogPythonBlueprintUtils, Log, TEXT("SetupComponentAttachment: Attached to socket '%s'"), *SocketName.ToString());
+	UE_LOG(LogExtraPythonAPIs, Log, TEXT("SetupComponentAttachment: Attached to socket '%s'"), *SocketName.ToString());
 	return true;
 }

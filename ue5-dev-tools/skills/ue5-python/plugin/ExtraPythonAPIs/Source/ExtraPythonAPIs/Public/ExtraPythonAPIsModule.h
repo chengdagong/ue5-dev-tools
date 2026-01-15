@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FPythonBlueprintUtilsModule : public IModuleInterface
+class FExtraPythonAPIsModule : public IModuleInterface
 {
 public:
 	/** IModuleInterface implementation */

@@ -174,6 +174,54 @@ ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
 
 Use your best knowledge of UE5 Python API and follow [best practices](#best-practices) to implement script.
 
+#### Debug Visualization for Visual Verification
+
+**[Critical]** When writing scripts that create or modify visual elements, include debug visualization to enable precise visual verification:
+
+**What to visualize:**
+- Object/character world coordinates (X, Y, Z)
+- Mesh bounding box dimensions (width, height, depth)
+- Distances between key objects
+- Facing directions and orientations
+- Attachment points and socket locations
+
+**How to implement:**
+```python
+import unreal
+
+# Draw debug text at actor location
+unreal.SystemLibrary.draw_debug_string(
+    world,
+    actor.get_actor_location(),
+    f"Pos: {actor.get_actor_location()}",
+    text_color=unreal.LinearColor(1, 1, 0, 1),  # Yellow
+    duration=0.0  # Persistent
+)
+
+# Draw debug box showing mesh bounds
+bounds_origin, bounds_extent = mesh_component.get_local_bounds()
+unreal.SystemLibrary.draw_debug_box(
+    world,
+    bounds_origin,
+    bounds_extent,
+    unreal.LinearColor(0, 1, 0, 1),  # Green
+    duration=0.0
+)
+
+# Draw debug line showing distance between objects
+unreal.SystemLibrary.draw_debug_line(
+    world,
+    actor_a.get_actor_location(),
+    actor_b.get_actor_location(),
+    unreal.LinearColor(1, 0, 0, 1),  # Red
+    duration=0.0
+)
+```
+
+**Why?** Screenshots with debug overlays make visual verification precise - you can confirm exact positions, sizes, and relationships rather than eyeballing.
+
+---
+
 [Critical] List files in folder [Common Pitfalls](./references/common-pitfalls/) and check if any document is related to your current task. If yes, please read it carefully before coding.
 
 Refert to exammple scripts for similar tasks in ue5-dev-tools repository.

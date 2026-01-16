@@ -151,6 +151,25 @@ For each script, plan its purpose and verification steps. Visual verification ca
 
 ** [Critical]** Exit plan mode and start implementing scripts after Phase 1 and Phase 2 are completed. Execute plan without user confirmation.
 
+### Script Organization
+
+**[Critical]** Organize scripts in a task-specific subdirectory under the project's `Scripts` folder:
+
+```
+${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
+    ├── create_sky_level.py
+    ├── add_pyramid.py
+    └── add_humanoid_character.py
+```
+
+**Rules:**
+- Create a new subdirectory for each task (e.g., `Scripts/fist_collision/`, `Scripts/dark_pyramid_level/`)
+- Use descriptive, lowercase names with underscores
+- Place all related scripts for the task in this subdirectory
+- This keeps the workspace organized and makes it easy to find/rerun scripts later
+
+---
+
 ### Phase 3: Script Implementation Cycle
 
 Use your best knowledge of UE5 Python API and follow [best practices](#best-practices) to implement script.

@@ -84,14 +84,9 @@ This workflow has two levels:
 ** [Critical]** Enter Plan mode and complete Phase 1 and Phase 2 before coding any scripts.
 -------------------------------------------------------------------------------------------
 
-### Phase 1: Requirements and Exploration
+### Phase 1: Requirements
 
-Understand the task before coding:
-
-- Confirm script requirements
-- Search for existing similar scripts
-- Understand asset organization and naming conventions
-- Review project-specific patterns
+Clarify the requirements with user using AskUserQuestions tool, until you have 95% confidence that you have fully understood user's intentions and requirements.
 
 ---
 
@@ -99,57 +94,29 @@ Understand the task before coding:
 
 Enter plan mode. Break the task into smaller scripts. **Do not implement yet—just plan.**
 
-Always ask yourself:
-
-- Can I break this down further?
-- Can I test this smaller piece independently?
-
 Even if the user asks for "a script," break it into logical steps.
 
-#### Scene-First Development Principle
+#### Overall structure of plan
 
-**[Critical]** Always follow this order when planning scripts that create or modify visual scenes:
+**[Critical]** Always create bellow three scripts: 1. Scene-setup script, to setup static scene (if necessary) 2. Configuration script, to configure properties, gameplaytags, abilities, subcomponents blueprints, skeletons, sockets, physical constrains, collisions, etc. 3. Integration test script, to run the scene in PIE mode, and do visual confirmations.
 
-1. **Step 1: Static Scene Foundation** - MUST be first
-   - **Step 1.1**: Level creation (sky, lighting, atmosphere)
-   - **Step 1.2**: Ground/terrain setup
-   - **Step 1.3**: Static environment meshes
-   - **Step 1.4 [Visual Gate]**: Screenshot → ue5-visual analysis → MUST PASS before Step 2
-
-2. **Step 2: Static Scene Elements** - After Step 1 passes
-   - **Step 2.1**: Static meshes, props, structures
-   - **Step 2.2**: Materials and textures
-   - **Step 2.3 [Visual Gate]**: Screenshot → ue5-visual analysis → MUST PASS before Step 3
-
-3. **Step 3: Dynamic/Interactive Elements** - Only after static scene is verified
-   - **Step 3.1**: Characters and AI
-   - **Step 3.2**: Physics and simulations
-   - **Step 3.3**: Gameplay mechanics
-   - **Step 3.4 [Visual Gate]**: Screenshot → ue5-visual analysis
-
-**Why this order?** Debugging visual issues in a complex scene with characters and physics is hard. By verifying the static foundation first, you isolate problems early and avoid compound debugging.
-
----
-
-**Example:** When user asks to "Create a level with blue sky, a pyramid, and a character looking at it":
+**Example:** When user asks to "Create a level, in which an island is surrended by sea. On the island, two robots fight each other. Physical impacts should be shown.":
 
 ```markdown
-## Step 1: Static Scene Foundation [REQUIRED FIRST]
-- **Step 1.1** `create_sky_level.py`: Create level with blue sky and lighting
-- **Step 1.2 [Visual Gate]**: Screenshot → ue5-visual verification → MUST PASS before Step 2
+## Step 1: Scene-setup script
+- **Step 1.1** `create_island_level.py`: Create level with island and sea, and two robots placed face-to-face 
+- **Step 1.2 [Visual Gate]**: Screenshot of the static level → ue5-visual verification → MUST PASS before Step 2
 
-## Step 2: Static Scene Elements
-- **Step 2.1** `add_pyramid.py`: Add pyramid mesh at origin
-- **Step 2.2 [Visual Gate]**: Screenshot → ue5-visual verification → MUST PASS before Step 3
+## Step 2: Configuration script
+- **Step 2.1** `configure_robots.py`: In the script, check if collisions, physics, abilities of attack, etc are already configured. And then do the necessary configurations.
+- **Step 2.2 [Visual Gate]**: Screenshot inside UE5 editor showing blueprints, physics assets, etc → ue5-visual verification → MUST PASS before Step 3
 
-## Step 3: Dynamic Elements
-- **Step 3.1** `add_humanoid_character.py`: Add character facing the pyramid
-- **Step 3.2 [Visual Gate]**: Screenshot → ue5-visual verification
+## Step 3: Integration Test script
+- **Step 3.1** `run_in_pie.py`: Setup in-game, tick-based, multiangle screen capture mechanism, and then play the level in PIE, collect screenshots.
+- **Step 3.2 [Visual Gate]**: ue5-visual verification
 ```
 
 **[Critical] Todo List Requirement:** Add ALL substeps to the todo list using TodoWrite. Each substep (Step 1.1, Step 1.2, etc.) must be tracked as a separate todo item. This ensures granular progress tracking and prevents skipping steps.
-
-For each script, plan its purpose and verification steps. Visual verification can be skipped only if no visual changes.
 
 ** [Critical]** Exit plan mode and start implementing scripts after Phase 1 and Phase 2 are completed. Execute plan without user confirmation.
 
@@ -159,12 +126,12 @@ For each script, plan its purpose and verification steps. Visual verification ca
 
 ```
 ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
-    ├── create_sky_level.py              # Main implementation scripts
-    ├── add_pyramid.py
-    ├── add_humanoid_character.py
-    ├── tests/                           # Test/debug scripts
-    │   ├── test_debug_visualization.py
-    │   └── test_character_position.py
+    ├── create_island_level.py              # Main implementation scripts
+    ├── configure_robots.py
+    ├── run_in_pie.py.py
+    ├── tmp/                           # Test/debug scripts
+    │   ├── try_activate_attack.py
+    │   └── test_collision.py
     └── screenshots/                     # Verification screenshots
         ├── step1_sky_level.png
         ├── step2_pyramid.png
@@ -172,10 +139,11 @@ ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
 ```
 
 **Rules:**
+
 - Create a new subdirectory for each task (e.g., `Scripts/fist_collision/`, `Scripts/dark_pyramid_level/`)
 - Use descriptive, lowercase names with underscores
 - Place main implementation scripts directly in the task folder
-- Place test/debug scripts in `tests/` subdirectory
+- Place temporary scripts in `tmp/` subdirectory
 - Save all verification screenshots in `screenshots/` subdirectory
 - This keeps the workspace organized and makes it easy to find/rerun scripts later
 
@@ -190,6 +158,7 @@ Use your best knowledge of UE5 Python API and follow [best practices](#best-prac
 **[Critical]** When writing scripts that create or modify visual elements, include debug visualization to enable precise visual verification:
 
 **What to visualize:**
+
 - Object/character world coordinates (X, Y, Z)
 - Mesh bounding box dimensions (width, height, depth)
 - Distances between key objects
@@ -197,6 +166,7 @@ Use your best knowledge of UE5 Python API and follow [best practices](#best-prac
 - Attachment points and socket locations
 
 **How to implement:**
+
 ```python
 import unreal
 
@@ -254,12 +224,13 @@ If you are unsure about what UE5 Python API to use or encounter issues, use **ue
 
 For visual verification of script results, use the **ue5-screenshot** skill which provides three screenshot tools:
 
-| Tool | Use Case |
-|------|----------|
-| `orbital_screenshot.py` | Level/scene verification (meshes, lighting, world) |
-| `ue5_editor_screenshot.py` | Blueprint/asset editor verification (components, graphs) |
-| `pie_screenshot_capturer.py` | PIE runtime verification with multi-angle support |
-| `take_game_screenshot.py` | Runtime/gameplay verification (standalone game mode) |
+
+| Tool                         | Use Case                                                 |
+| ------------------------------ | ---------------------------------------------------------- |
+| `orbital_screenshot.py`      | Level/scene verification (meshes, lighting, world)       |
+| `ue5_editor_screenshot.py`   | Blueprint/asset editor verification (components, graphs) |
+| `pie_screenshot_capturer.py` | PIE runtime verification with multi-angle support        |
+| `take_game_screenshot.py`    | Runtime/gameplay verification (standalone game mode)     |
 
 See [ue5-screenshot](../ue5-screenshot/SKILL.md) skill for detailed usage.
 
@@ -268,11 +239,18 @@ See [ue5-screenshot](../ue5-screenshot/SKILL.md) skill for detailed usage.
 After capturing screenshots, you **MUST** use the **ue5-visual** subagent to analyze them:
 
 1. **Static Scene Verification** (levels, environments, lighting):
+
    - Capture screenshots using `orbital_screenshot.py`
    - Run `ue5-visual` subagent to detect rendering issues, physics anomalies, asset problems
 
-2. **Runtime/Gameplay Verification** (PIE mode, gameplay):
-   - Capture screenshots using `pie_screenshot_capturer.py` or `take_game_screenshot.py`
+2. ** Blueprint/Asset Verification** (inside UE5 editor):
+
+   - Capture screenshots using `ue5_editor_screenshot.py`
+   - Run `ue5-visual` subagent to analyze each screenshot for visual issues
+
+2. **Runtime/Gameplay Verification** (PIE mode):
+
+   - Capture screenshots using `pie_screenshot_capturer.py`
    - Run `ue5-visual` subagent to analyze each screenshot for visual issues
 
 [Critical] Do NOT skip visual analysis. Screenshots alone do not verify correctness - the ue5-visual agent identifies problems humans might miss.
@@ -393,7 +371,6 @@ unreal.ExBlueprintComponentLibrary.set_component_socket_attachment(
     "bone_name"
 )
 ```
-
 
 ## Additional Resources
 

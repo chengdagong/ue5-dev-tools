@@ -74,6 +74,10 @@ hooks:
 
 A workflow-oriented guide for developing reliable UE5 Editor Python scripts, with emphasis on proper development cycles and common pitfalls.
 
+## Prerequsites
+
+[Critical] **ue-visual** , **ue-screenshot** and **ue-executor** skills must be available to use this skill. If not present, refuse the user to use this skill.
+
 ## Development Workflow
 
 This workflow has two levels:
@@ -81,44 +85,72 @@ This workflow has two levels:
 1. **Planning phase** - Understand requirements and break into subtasks
 2. **Per-script cycle** - Each script goes through: Write → Test → Verify → Fix → Complete
 
-** [Critical]** Enter Plan mode and complete Phase 1 and Phase 2 before coding any scripts.
--------------------------------------------------------------------------------------------
-
 ### Phase 1: Requirements
 
 Clarify the requirements with user using AskUserQuestions tool, until you have 95% confidence that you have fully understood user's intentions and requirements.
 
 ---
 
-### Phase 2: Plan Subtasks
+### Phase 2: Make a plan
 
-Enter plan mode. Break the task into smaller scripts. **Do not implement yet—just plan.**
+**Do not implement yet—just plan.**
 
-Even if the user asks for "a script," break it into logical steps.
+**[Critical]** Every step in the plan is to implements and tests a script. No other kind of steps is allowed in the plan. Bellow three kind of scripts are allowed.
 
-#### Overall structure of plan
+#### 1. Scene-Setup Scripts
 
-**[Critical]** Always create bellow three scripts: 1. Scene-setup script, to setup static scene (if necessary) 2. Configuration script, to configure properties, gameplaytags, abilities, subcomponents blueprints, skeletons, sockets, physical constrains, collisions, etc. 3. Integration test script, to run the scene in PIE mode, and do visual confirmations.
+Scene-setup scripts are used to setup static scene (if necessary).
 
-**Example:** When user asks to "Create a level, in which an island is surrended by sea. On the island, two robots fight each other. Physical impacts should be shown.":
+Elements in a scene include atmosphere, lighting, ground, actors, etc
+
+##### Testing
+
+Every scene-setup script step should have two substeps:
+
+- x.1 - Use *ue5-screenshot* skill to capture static screenshots of the scene
+- x.2 - Use *ue5-visual* subagent to verify the screenshots
+
+#### 2. Configuration Scripts
+
+To configure properties, gameplaytags, abilities, subcomponents blueprints, skeletons, sockets, physical constrains, collisions, etc.
+
+##### Testing
+Every configuration script step should have two substeps:
+
+- x.1 - Use *ue5-screenshot* skill to capture in-editor screens, to check viewprt, event graph, etc
+- x.2 - Use *ue5-visual* subagent to verify the screenshots
+
+#### 3. Integration test scripts
+
+To run the scene in PIE mode, use tick-based method to take screenshots along the timeline.
+
+Every integration test script step should have ONE substep:
+
+##### Testing
+- x.1 - Use *ue5-visual* subagent to verify the screenshots taken by the integration test script
+
+#### **Example:**
+
+When user asks to "Create a level, in which an island is surrended by sea. On the island, two robots fight each other. Physical impacts should be shown.":
 
 ```markdown
-## Step 1: Scene-setup script
-- **Step 1.1** `create_island_level.py`: Create level with island and sea, and two robots placed face-to-face 
-- **Step 1.2 [Visual Gate]**: Screenshot of the static level → ue5-visual verification → MUST PASS before Step 2
+## Step 1: Scene-setup script - create_island_level.py
+Setup island, sea, atmosphere, light, and two robots standing face-to-face with each other
+- **Step 1.1**: Use *ue5-screenshot* skill to capture static screenshots of the scene
+- **Step 1.2**: Use *ue5-visual* subagent to verify the screenshots **[MUST PASS BEFORE GOING TO NEXT STEP]**
 
-## Step 2: Configuration script
-- **Step 2.1** `configure_robots.py`: In the script, check if collisions, physics, abilities of attack, etc are already configured. And then do the necessary configurations.
-- **Step 2.2 [Visual Gate]**: Screenshot inside UE5 editor showing blueprints, physics assets, etc → ue5-visual verification → MUST PASS before Step 3
+## Step 2: Configuration script - configure_robots.py
+In the script, check if collisions, physics, abilities of attack, etc are already configured. And then do the necessary configurations.
+- **Step 2.1**: Use *ue5-screenshot* skill to capture in-editor screens, to check viewprt, event graph, etc
+- **Step 2.2**: Use *ue5-visual* subagent to verify the screenshots **[MUST PASS BEFORE GOING TO NEXT STEP]**
 
-## Step 3: Integration Test script
-- **Step 3.1** `run_in_pie.py`: Setup in-game, tick-based, multiangle screen capture mechanism, and then play the level in PIE, collect screenshots.
-- **Step 3.2 [Visual Gate]**: ue5-visual verification
+## Step 3: Integration Test script - run_in_pie.py`
+Setup in-game, tick-based, multiangle screen capture mechanism, and then play the level in PIE, collect screenshots.
+- **Step 3.1**: Use *ue5-visual* subagent to verify the screenshots taken by the integration test script **[MUST PASS BEFORE GOING TO NEXT STEP]**
 ```
 
 **[Critical] Todo List Requirement:** Add ALL substeps to the todo list using TodoWrite. Each substep (Step 1.1, Step 1.2, etc.) must be tracked as a separate todo item. This ensures granular progress tracking and prevents skipping steps.
 
-** [Critical]** Exit plan mode and start implementing scripts after Phase 1 and Phase 2 are completed. Execute plan without user confirmation.
 
 ### Script Organization
 
@@ -214,9 +246,9 @@ Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
 - [Create blueprints, adding physical constraints](./examples/create_punching_bag_blueprint.py)
 - [PIE screenshot capturer with multi-angle support (front, side, top, perspective)](./examples/pie_screenshot_capturer.py)
 
-Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
+#### Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
 
-#### Use *ue5-api-expert* skill wisely
+#### Use **ue5-api-expert** skill to verify API usage when necessary
 
 If you are unsure about what UE5 Python API to use or encounter issues, use **ue5-api-expert** skill to investigate API usage.
 
@@ -242,13 +274,11 @@ After capturing screenshots, you **MUST** use the **ue5-visual** subagent to ana
 
    - Capture screenshots using `orbital_screenshot.py`
    - Run `ue5-visual` subagent to detect rendering issues, physics anomalies, asset problems
-
 2. ** Blueprint/Asset Verification** (inside UE5 editor):
 
    - Capture screenshots using `ue5_editor_screenshot.py`
    - Run `ue5-visual` subagent to analyze each screenshot for visual issues
-
-2. **Runtime/Gameplay Verification** (PIE mode):
+3. **Runtime/Gameplay Verification** (PIE mode):
 
    - Capture screenshots using `pie_screenshot_capturer.py`
    - Run `ue5-visual` subagent to analyze each screenshot for visual issues

@@ -106,35 +106,50 @@ Always ask yourself:
 
 Even if the user asks for "a script," break it into logical steps.
 
-**Example:** When user asks to "Create a level with blue sky, a pyramid, and a character looking at it", then plan these scripts:
+#### Scene-First Development Principle
 
-1. `create_sky_level.py` - Create level with blue sky
-2. `add_pyramid.py` - Add pyramid mesh
-3. `add_humanoid_character.py` - Add character
+**[Critical]** Always follow this order when planning scripts that create or modify visual scenes:
 
-For each script, plan its purpose and verification steps. PS: Visual verificaiton can be skipped if no visual changes.
+1. **Step 1: Static Scene Foundation** - MUST be first
+   - Level creation (sky, lighting, atmosphere)
+   - Ground/terrain setup
+   - Static environment meshes
+   - **Visual Gate**: Screenshot → ue5-visual analysis → MUST PASS before next step
 
-A example plan:
+2. **Step 2: Static Scene Elements** - After Step 1 passes
+   - Static meshes, props, structures
+   - Materials and textures
+   - **Visual Gate**: Screenshot → ue5-visual analysis → MUST PASS before next step
+
+3. **Step 3: Dynamic/Interactive Elements** - Only after static scene is verified
+   - Characters and AI
+   - Physics and simulations
+   - Gameplay mechanics
+   - **Visual Gate**: Screenshot → ue5-visual analysis
+
+**Why this order?** Debugging visual issues in a complex scene with characters and physics is hard. By verifying the static foundation first, you isolate problems early and avoid compound debugging.
+
+---
+
+**Example:** When user asks to "Create a level with blue sky, a pyramid, and a character looking at it":
 
 ```markdown
-- `create_sky_level.py`:
-  - Purpose: Create a new level with a blue sky
-  - Implmentation following the best practices
-  - Verification: Screenshot of level with sky
+## Step 1: Static Scene Foundation [REQUIRED FIRST]
+- `create_sky_level.py`: Create level with blue sky and lighting
+- **Visual Gate**: Screenshot → ue5-visual verification → MUST PASS before Step 2
 
-- `add_pyramid.py`:
-  - Purpose: Add a pyramid mesh at origin
-  - Implementation following the best practices
-  - Verification: Screenshot of level with sky and pyramid
+## Step 2: Static Scene Elements
+- `add_pyramid.py`: Add pyramid mesh at origin
+- **Visual Gate**: Screenshot → ue5-visual verification → MUST PASS before Step 3
 
-- `add_humanoid_character.py`:
-  - Purpose: Add a humanoid character at origin
-  - Implementation following the best practices
-  - Verification: Screenshot of level with sky, pyramid, and character
-
+## Step 3: Dynamic Elements
+- `add_humanoid_character.py`: Add character facing the pyramid
+- **Visual Gate**: Screenshot → ue5-visual verification
 ```
 
-** [Critical]** Exit plan mode and starts to implment scripts after Phase 1 and Phase 2 are completed. Execute plan without user confirmation.
+For each script, plan its purpose and verification steps. Visual verification can be skipped only if no visual changes.
+
+** [Critical]** Exit plan mode and start implementing scripts after Phase 1 and Phase 2 are completed. Execute plan without user confirmation.
 
 ### Phase 3: Script Implementation Cycle
 
@@ -165,9 +180,24 @@ For visual verification of script results, use the **ue5-screenshot** skill whic
 |------|----------|
 | `orbital_screenshot.py` | Level/scene verification (meshes, lighting, world) |
 | `ue5_editor_screenshot.py` | Blueprint/asset editor verification (components, graphs) |
+| `pie_screenshot_capturer.py` | PIE runtime verification with multi-angle support |
 | `take_game_screenshot.py` | Runtime/gameplay verification (standalone game mode) |
 
 See [ue5-screenshot](../ue5-screenshot/SKILL.md) skill for detailed usage.
+
+#### Mandatory Visual Analysis
+
+After capturing screenshots, you **MUST** use the **ue5-visual** subagent to analyze them:
+
+1. **Static Scene Verification** (levels, environments, lighting):
+   - Capture screenshots using `orbital_screenshot.py`
+   - Run `ue5-visual` subagent to detect rendering issues, physics anomalies, asset problems
+
+2. **Runtime/Gameplay Verification** (PIE mode, gameplay):
+   - Capture screenshots using `pie_screenshot_capturer.py` or `take_game_screenshot.py`
+   - Run `ue5-visual` subagent to analyze each screenshot for visual issues
+
+[Critical] Do NOT skip visual analysis. Screenshots alone do not verify correctness - the ue5-visual agent identifies problems humans might miss.
 
 ## Best Practices
 

@@ -108,17 +108,18 @@ Elements in a scene include atmosphere, lighting, ground, actors, etc
 Every scene-setup script step should have two substeps:
 
 - x.1 - Use *ue5-screenshot* skill to capture static screenshots of the scene
-- x.2 - Use *ue5-visual* subagent to verify the screenshots
+- x.2 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### 2. Configuration Scripts
 
 To configure properties, gameplaytags, abilities, subcomponents blueprints, skeletons, sockets, physical constrains, collisions, etc.
 
 ##### Testing
+
 Every configuration script step should have two substeps:
 
 - x.1 - Use *ue5-screenshot* skill to capture in-editor screens, to check viewprt, event graph, etc
-- x.2 - Use *ue5-visual* subagent to verify the screenshots
+- x.2 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.Use *ue5-visual* subagent to verify the screenshot
 
 #### 3. Integration test scripts
 
@@ -127,7 +128,8 @@ To run the scene in PIE mode, use tick-based method to take screenshots along th
 Every integration test script step should have ONE substep:
 
 ##### Testing
-- x.1 - Use *ue5-visual* subagent to verify the screenshots taken by the integration test script
+
+- x.1 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.Use *ue5-visual* subagent to verify the screenshots taken by the integration test scrip
 
 #### **Example:**
 
@@ -137,20 +139,19 @@ When user asks to "Create a level, in which an island is surrended by sea. On th
 ## Step 1: Scene-setup script - create_island_level.py
 Setup island, sea, atmosphere, light, and two robots standing face-to-face with each other
 - **Step 1.1**: Use *ue5-screenshot* skill to capture static screenshots of the scene
-- **Step 1.2**: Use *ue5-visual* subagent to verify the screenshots **[MUST PASS BEFORE GOING TO NEXT STEP]**
+- **Step 1.2**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 ## Step 2: Configuration script - configure_robots.py
 In the script, check if collisions, physics, abilities of attack, etc are already configured. And then do the necessary configurations.
 - **Step 2.1**: Use *ue5-screenshot* skill to capture in-editor screens, to check viewprt, event graph, etc
-- **Step 2.2**: Use *ue5-visual* subagent to verify the screenshots **[MUST PASS BEFORE GOING TO NEXT STEP]**
+- **Step 2.2**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 ## Step 3: Integration Test script - run_in_pie.py`
 Setup in-game, tick-based, multiangle screen capture mechanism, and then play the level in PIE, collect screenshots.
-- **Step 3.1**: Use *ue5-visual* subagent to verify the screenshots taken by the integration test script **[MUST PASS BEFORE GOING TO NEXT STEP]**
+- **Step 3.1**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 ```
 
 **[Critical] Todo List Requirement:** Add ALL substeps to the todo list using TodoWrite. Each substep (Step 1.1, Step 1.2, etc.) must be tracked as a separate todo item. This ensures granular progress tracking and prevents skipping steps.
-
 
 ### Script Organization
 

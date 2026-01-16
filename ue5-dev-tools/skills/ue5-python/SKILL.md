@@ -111,21 +111,21 @@ Even if the user asks for "a script," break it into logical steps.
 **[Critical]** Always follow this order when planning scripts that create or modify visual scenes:
 
 1. **Step 1: Static Scene Foundation** - MUST be first
-   - Level creation (sky, lighting, atmosphere)
-   - Ground/terrain setup
-   - Static environment meshes
-   - **Visual Gate**: Screenshot → ue5-visual analysis → MUST PASS before next step
+   - **Step 1.1**: Level creation (sky, lighting, atmosphere)
+   - **Step 1.2**: Ground/terrain setup
+   - **Step 1.3**: Static environment meshes
+   - **Step 1.4 [Visual Gate]**: Screenshot → ue5-visual analysis → MUST PASS before Step 2
 
 2. **Step 2: Static Scene Elements** - After Step 1 passes
-   - Static meshes, props, structures
-   - Materials and textures
-   - **Visual Gate**: Screenshot → ue5-visual analysis → MUST PASS before next step
+   - **Step 2.1**: Static meshes, props, structures
+   - **Step 2.2**: Materials and textures
+   - **Step 2.3 [Visual Gate]**: Screenshot → ue5-visual analysis → MUST PASS before Step 3
 
 3. **Step 3: Dynamic/Interactive Elements** - Only after static scene is verified
-   - Characters and AI
-   - Physics and simulations
-   - Gameplay mechanics
-   - **Visual Gate**: Screenshot → ue5-visual analysis
+   - **Step 3.1**: Characters and AI
+   - **Step 3.2**: Physics and simulations
+   - **Step 3.3**: Gameplay mechanics
+   - **Step 3.4 [Visual Gate]**: Screenshot → ue5-visual analysis
 
 **Why this order?** Debugging visual issues in a complex scene with characters and physics is hard. By verifying the static foundation first, you isolate problems early and avoid compound debugging.
 
@@ -135,17 +135,19 @@ Even if the user asks for "a script," break it into logical steps.
 
 ```markdown
 ## Step 1: Static Scene Foundation [REQUIRED FIRST]
-- `create_sky_level.py`: Create level with blue sky and lighting
-- **Visual Gate**: Screenshot → ue5-visual verification → MUST PASS before Step 2
+- **Step 1.1** `create_sky_level.py`: Create level with blue sky and lighting
+- **Step 1.2 [Visual Gate]**: Screenshot → ue5-visual verification → MUST PASS before Step 2
 
 ## Step 2: Static Scene Elements
-- `add_pyramid.py`: Add pyramid mesh at origin
-- **Visual Gate**: Screenshot → ue5-visual verification → MUST PASS before Step 3
+- **Step 2.1** `add_pyramid.py`: Add pyramid mesh at origin
+- **Step 2.2 [Visual Gate]**: Screenshot → ue5-visual verification → MUST PASS before Step 3
 
 ## Step 3: Dynamic Elements
-- `add_humanoid_character.py`: Add character facing the pyramid
-- **Visual Gate**: Screenshot → ue5-visual verification
+- **Step 3.1** `add_humanoid_character.py`: Add character facing the pyramid
+- **Step 3.2 [Visual Gate]**: Screenshot → ue5-visual verification
 ```
+
+**[Critical] Todo List Requirement:** Add ALL substeps to the todo list using TodoWrite. Each substep (Step 1.1, Step 1.2, etc.) must be tracked as a separate todo item. This ensures granular progress tracking and prevents skipping steps.
 
 For each script, plan its purpose and verification steps. Visual verification can be skipped only if no visual changes.
 

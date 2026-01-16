@@ -157,10 +157,13 @@ For each script, plan its purpose and verification steps. Visual verification ca
 
 ```
 ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
-    ├── create_sky_level.py
+    ├── create_sky_level.py              # Main implementation scripts
     ├── add_pyramid.py
     ├── add_humanoid_character.py
-    └── screenshots/
+    ├── tests/                           # Test/debug scripts
+    │   ├── test_debug_visualization.py
+    │   └── test_character_position.py
+    └── screenshots/                     # Verification screenshots
         ├── step1_sky_level.png
         ├── step2_pyramid.png
         └── step3_character.png
@@ -169,8 +172,9 @@ ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
 **Rules:**
 - Create a new subdirectory for each task (e.g., `Scripts/fist_collision/`, `Scripts/dark_pyramid_level/`)
 - Use descriptive, lowercase names with underscores
-- Place all related scripts for the task in this subdirectory
-- Save all verification screenshots in `screenshots/` subdirectory within the task folder
+- Place main implementation scripts directly in the task folder
+- Place test/debug scripts in `tests/` subdirectory
+- Save all verification screenshots in `screenshots/` subdirectory
 - This keeps the workspace organized and makes it easy to find/rerun scripts later
 
 ---

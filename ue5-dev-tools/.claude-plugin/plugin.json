@@ -1,6 +1,6 @@
 {
     "name": "ue5-dev-tools",
-    "version": "0.3.75",
+    "version": "0.3.76",
     "description": "Comprehensive UE5 development toolkit: validate API usage, execute scripts remotely, debug with VSCode, build projects from command line, and follow best-practice workflows for UE5 development",
     "author": {
         "name": "UE5 Dev Tools"

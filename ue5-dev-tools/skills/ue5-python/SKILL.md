@@ -78,7 +78,9 @@ A workflow-oriented guide for developing reliable UE5 Editor Python scripts, wit
 
 [Critical] **ue5-visual** subagent and **ue5-python-executor** skill must be available to use this skill. If not present, refuse the user to use this skill.
 
-The **editor_capture** module (bundled in `site-packages/`) provides screenshot capabilities for visual verification.
+The **editor_capture** module (bundled in `site-packages/`) provides screenshot capabilities for visual verification. This module runs inside UE5 Editor - use **ue5-python-executor** skill (remote-execute.py) to execute.
+
+The **asset_diagnostic** module (bundled in `site-packages/`) provides automated issue detection for levels and assets. This module runs inside UE5 Editor - use **ue5-python-executor** skill (remote-execute.py) to execute.
 
 ## Development Workflow
 
@@ -107,10 +109,11 @@ Elements in a scene include atmosphere, lighting, ground, actors, etc
 
 ##### Testing
 
-Every scene-setup script step should have two substeps:
+Every scene-setup script step should have three substeps:
 
-- x.1 - Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
-- x.2 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+- x.1 - Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
+- x.2 - Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
+- x.3 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### 2. Configuration Scripts
 
@@ -118,10 +121,11 @@ To configure properties, gameplaytags, abilities, subcomponents blueprints, skel
 
 ##### Testing
 
-Every configuration script step should have two substeps:
+Every configuration script step should have three substeps:
 
-- x.1 - Use `editor_capture.window_capture` to capture editor window screenshots (viewport, event graph, etc)
-- x.2 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+- x.1 - Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
+- x.2 - Use `editor_capture.window_capture` to capture editor window screenshots (viewport, event graph, etc)
+- x.3 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### 3. Integration test scripts
 
@@ -140,13 +144,15 @@ When user asks to "Create a level, in which an island is surrended by sea. On th
 ```markdown
 ## Step 1: Scene-setup script - create_island_level.py
 Setup island, sea, atmosphere, light, and two robots standing face-to-face with each other
-- **Step 1.1**: Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
-- **Step 1.2**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+- **Step 1.1**: Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
+- **Step 1.2**: Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
+- **Step 1.3**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 ## Step 2: Configuration script - configure_robots.py
 In the script, check if collisions, physics, abilities of attack, etc are already configured. And then do the necessary configurations.
-- **Step 2.1**: Use `editor_capture.window_capture` to capture editor screenshots (viewport, event graph, etc)
-- **Step 2.2**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+- **Step 2.1**: Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
+- **Step 2.2**: Use `editor_capture.window_capture` to capture editor screenshots (viewport, event graph, etc)
+- **Step 2.3**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 ## Step 3: Integration Test script - run_in_pie.py
 Setup in-game, tick-based, multiangle screen capture mechanism, and then play the level in PIE, collect screenshots.
@@ -293,6 +299,83 @@ After capturing screenshots, you **MUST** use the **ue5-visual** subagent to ana
    - Run `ue5-visual` subagent to analyze each screenshot for visual issues. Use very strict standard, the only purpose is to find out as many flaws and issues as possible.
 
 [Critical] Do NOT skip visual analysis. Screenshots alone do not verify correctness - the ue5-visual agent identifies problems humans might miss.
+
+### Asset Diagnostic
+
+Before visual verification, use `asset_diagnostic` to detect and fix issues programmatically.
+
+**Basic Usage:**
+
+```bash
+# Run via remote-execute.py (ue5-python-executor skill)
+python remote-execute.py --code "
+import asset_diagnostic
+
+# Diagnose current level (default)
+result = asset_diagnostic.diagnose()
+print(result)
+"
+
+# Diagnose specific asset
+python remote-execute.py --code "
+import asset_diagnostic
+result = asset_diagnostic.diagnose('/Game/Maps/MyLevel')
+print(result)
+"
+
+# Verbose mode for detailed analysis
+python remote-execute.py --code "
+import asset_diagnostic
+result = asset_diagnostic.diagnose(verbose=True)
+print(result)
+"
+```
+
+**Interpreting Results:**
+
+```bash
+# Run via remote-execute.py (ue5-python-executor skill)
+python remote-execute.py --code "
+import asset_diagnostic
+
+result = asset_diagnostic.diagnose()
+
+if result.has_errors:
+    # Critical issues that must be fixed
+    print(f'Errors: {result.error_count}')
+
+if result.has_warnings:
+    # Potential issues that should be addressed
+    print(f'Warnings: {result.warning_count}')
+"
+```
+
+**Fix-and-Recheck Loop:**
+
+```bash
+# Run via remote-execute.py (ue5-python-executor skill)
+python remote-execute.py --code "
+import asset_diagnostic
+
+# Run diagnostic
+result = asset_diagnostic.diagnose()
+
+# Loop until clean
+while result.has_errors or result.has_warnings:
+    # Fix issues based on result.issues
+    # ... your fix code here ...
+
+    # Re-run diagnostic
+    result = asset_diagnostic.diagnose()
+
+# Now proceed to visual verification
+print('All issues resolved, ready for visual verification')
+"
+```
+
+[Critical] Always fix all errors and warnings before proceeding to visual capture and verification.
+
+See [Asset Diagnostic API](./references/asset-diagnostic.md) for complete documentation.
 
 ## Best Practices
 

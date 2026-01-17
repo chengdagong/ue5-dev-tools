@@ -74,9 +74,11 @@ hooks:
 
 A workflow-oriented guide for developing reliable UE5 Editor Python scripts, with emphasis on proper development cycles and common pitfalls.
 
-## Prerequsites
+## Prerequisites
 
-[Critical] **ue-visual** subagent, and **ue-screenshot** and **ue-executor** skills must be available to use this skill. If not present, refuse the user to use this skill.
+[Critical] **ue5-visual** subagent and **ue5-python-executor** skill must be available to use this skill. If not present, refuse the user to use this skill.
+
+The **editor_capture** module (bundled in `site-packages/`) provides screenshot capabilities for visual verification.
 
 ## Development Workflow
 
@@ -107,7 +109,7 @@ Elements in a scene include atmosphere, lighting, ground, actors, etc
 
 Every scene-setup script step should have two substeps:
 
-- x.1 - Use *ue5-screenshot* skill to capture static screenshots of the scene
+- x.1 - Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
 - x.2 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### 2. Configuration Scripts
@@ -118,18 +120,18 @@ To configure properties, gameplaytags, abilities, subcomponents blueprints, skel
 
 Every configuration script step should have two substeps:
 
-- x.1 - Use *ue5-screenshot* skill to capture in-editor screens, to check viewprt, event graph, etc
-- x.2 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.Use *ue5-visual* subagent to verify the screenshot
+- x.1 - Use `editor_capture.window_capture` to capture editor window screenshots (viewport, event graph, etc)
+- x.2 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### 3. Integration test scripts
 
-To run the scene in PIE mode, use tick-based method to take screenshots along the timeline.
+To run the scene in PIE mode, use tick-based method to take screenshots along the timeline. Reference the [PIE screenshot capturer example](./examples/pie_screenshot_capturer.py) for implementation.
 
 Every integration test script step should have ONE substep:
 
 ##### Testing
 
-- x.1 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.Use *ue5-visual* subagent to verify the screenshots taken by the integration test scrip
+- x.1 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots taken by the integration test script, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### **Example:**
 
@@ -138,15 +140,15 @@ When user asks to "Create a level, in which an island is surrended by sea. On th
 ```markdown
 ## Step 1: Scene-setup script - create_island_level.py
 Setup island, sea, atmosphere, light, and two robots standing face-to-face with each other
-- **Step 1.1**: Use *ue5-screenshot* skill to capture static screenshots of the scene
+- **Step 1.1**: Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
 - **Step 1.2**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 ## Step 2: Configuration script - configure_robots.py
 In the script, check if collisions, physics, abilities of attack, etc are already configured. And then do the necessary configurations.
-- **Step 2.1**: Use *ue5-screenshot* skill to capture in-editor screens, to check viewprt, event graph, etc
+- **Step 2.1**: Use `editor_capture.window_capture` to capture editor screenshots (viewport, event graph, etc)
 - **Step 2.2**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
-## Step 3: Integration Test script - run_in_pie.py`
+## Step 3: Integration Test script - run_in_pie.py
 Setup in-game, tick-based, multiangle screen capture mechanism, and then play the level in PIE, collect screenshots.
 - **Step 3.1**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 ```
@@ -161,14 +163,15 @@ Setup in-game, tick-based, multiangle screen capture mechanism, and then play th
 ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
     ├── create_island_level.py              # Main implementation scripts
     ├── configure_robots.py
-    ├── run_in_pie.py.py
+    ├── run_in_pie.py
     ├── tmp/                           # Test/debug scripts
     │   ├── try_activate_attack.py
     │   └── test_collision.py
     └── screenshots/                     # Verification screenshots
-        ├── step1_sky_level.png
-        ├── step2_pyramid.png
-        └── step3_character.png
+        ├── orbital/                     # From editor_capture.orbital
+        │   └── capture_1/
+        ├── editor/                      # From editor_capture.window_capture
+        └── pie/                         # From PIE test script
 ```
 
 **Rules:**
@@ -255,34 +258,39 @@ If you are unsure about what UE5 Python API to use or encounter issues, use **ue
 
 ### Visual Verification
 
-For visual verification of script results, use the **ue5-screenshot** skill which provides three screenshot tools:
+For visual verification of script results, use the **editor_capture** module:
 
+| Module | Use Case |
+|--------|----------|
+| `editor_capture.orbital` | Level/scene verification (multi-angle SceneCapture2D) |
+| `editor_capture.window_capture` | Editor window verification (viewport, Blueprint graphs) |
+| `editor_capture.asset_editor` | Open/close asset editors programmatically |
 
-| Tool                         | Use Case                                                 |
-| ------------------------------ | ---------------------------------------------------------- |
-| `orbital_screenshot.py`      | Level/scene verification (meshes, lighting, world)       |
-| `ue5_editor_screenshot.py`   | Blueprint/asset editor verification (components, graphs) |
-| `pie_screenshot_capturer.py` | PIE runtime verification with multi-angle support        |
-| `take_game_screenshot.py`    | Runtime/gameplay verification (standalone game mode)     |
-
-See [ue5-screenshot](../ue5-screenshot/SKILL.md) skill for detailed usage.
+For PIE runtime verification, use the [PIE screenshot capturer example](./examples/pie_screenshot_capturer.py).
 
 #### Mandatory Visual Analysis
 
 After capturing screenshots, you **MUST** use the **ue5-visual** subagent to analyze them:
 
 1. **Static Scene Verification** (levels, environments, lighting):
+   ```python
+   from editor_capture import orbital
+   world = unreal.EditorLevelLibrary.get_editor_world()
+   results = orbital.take_orbital_screenshots(world, target_location=unreal.Vector(0,0,100))
+   ```
+   - Run `ue5-visual` subagent to detect rendering issues, physics anomalies, asset problems. Use very strict standard, the only purpose is to find out as many flaws and issues as possible.
 
-   - Capture screenshots using `orbital_screenshot.py`
-   - Run `ue5-visual` subagent to detect rendering issues, physics anomalies, asset problems
-2. ** Blueprint/Asset Verification** (inside UE5 editor):
+2. **Blueprint/Asset Verification** (inside UE5 editor):
+   ```python
+   from editor_capture import window_capture, asset_editor
+   asset_editor.open_asset_editor('/Game/Blueprints/BP_MyActor')
+   window_capture.capture_ue5_window('screenshots/blueprint.png')
+   ```
+   - Run `ue5-visual` subagent to analyze each screenshot for visual issues. Use very strict standard, the only purpose is to find out as many flaws and issues as possible.
 
-   - Capture screenshots using `ue5_editor_screenshot.py`
-   - Run `ue5-visual` subagent to analyze each screenshot for visual issues
 3. **Runtime/Gameplay Verification** (PIE mode):
-
-   - Capture screenshots using `pie_screenshot_capturer.py`
-   - Run `ue5-visual` subagent to analyze each screenshot for visual issues
+   - Implement tick-based screenshot capture in your test script
+   - Run `ue5-visual` subagent to analyze each screenshot for visual issues. Use very strict standard, the only purpose is to find out as many flaws and issues as possible.
 
 [Critical] Do NOT skip visual analysis. Screenshots alone do not verify correctness - the ue5-visual agent identifies problems humans might miss.
 
@@ -402,6 +410,41 @@ unreal.ExBlueprintComponentLibrary.set_component_socket_attachment(
     "bone_name"
 )
 ```
+
+## Editor Capture Library
+
+The `editor_capture` module provides screenshot and editor automation APIs, available in UE5 Python environment.
+
+**Capabilities:**
+- **Orbital screenshots** - Multi-angle SceneCapture2D (perspective, orthographic, bird's eye)
+- **Asset editor ops** - Open/close asset editors programmatically
+- **Window capture** - Capture UE5 window screenshots (Windows only, requires Pillow)
+
+**Basic Usage:**
+
+```bash
+# Orbital screenshots (auto-cleanup enabled by default)
+python remote-execute.py --code "
+import unreal
+from editor_capture import orbital
+world = unreal.EditorLevelLibrary.get_editor_world()
+orbital.take_orbital_screenshots(world, target_location=unreal.Vector(0,0,100))
+"
+
+# Asset editor operations
+python remote-execute.py --code "
+from editor_capture import asset_editor
+asset_editor.open_asset_editor('/Game/Blueprints/BP_MyActor')
+"
+
+# Window capture (Windows only)
+python remote-execute.py --code "
+from editor_capture import window_capture
+window_capture.capture_ue5_window('C:/Screenshots/editor.png')
+"
+```
+
+See [Editor Capture API](./references/editor-capture.md) for complete documentation.
 
 ## Additional Resources
 

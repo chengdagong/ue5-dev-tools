@@ -18,6 +18,7 @@ from .paths import (
     find_runuat,
     find_build_bat,
     build_project,
+    needs_rebuild,
     find_skills_root,
     find_skill_path,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "find_runuat",
     "find_build_bat",
     "build_project",
+    "needs_rebuild",
     "find_skills_root",
     "find_skill_path",
 ]

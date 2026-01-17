@@ -227,6 +227,144 @@ def build_project(
         return False, f"Build error: {e}"
 
 
+def _get_latest_build_artifact_time(
+    project_root: Path, project_name: str
+) -> Optional[float]:
+    """
+    Get the modification time of the newest build artifact.
+
+    Looks for editor binaries in Binaries/Win64/:
+    - {ProjectName}Editor.exe
+    - UnrealEditor-{ProjectName}.dll
+
+    Args:
+        project_root: Root directory of the project
+        project_name: Name of the project (without .uproject extension)
+
+    Returns:
+        Modification timestamp of the newest artifact, or None if none exist
+    """
+    binaries_dir = project_root / "Binaries" / "Win64"
+    if not binaries_dir.exists():
+        return None
+
+    artifact_patterns = [
+        f"{project_name}Editor.exe",
+        f"UnrealEditor-{project_name}.dll",
+    ]
+
+    latest_time = None
+    for pattern in artifact_patterns:
+        artifact_path = binaries_dir / pattern
+        if artifact_path.exists():
+            mtime = artifact_path.stat().st_mtime
+            if latest_time is None or mtime > latest_time:
+                latest_time = mtime
+
+    return latest_time
+
+
+def _get_latest_source_modification_time(
+    project_root: Path, max_files: int = 10000
+) -> Optional[float]:
+    """
+    Get the modification time of the newest source file that would require a rebuild.
+
+    Scans:
+    - Source/**/*.cpp and Source/**/*.h (C++ source)
+    - *.uproject (project file)
+    - Config/DefaultEngine.ini (engine config)
+    - Source/**/*.Build.cs (module build configs)
+
+    Args:
+        project_root: Root directory of the project
+        max_files: Maximum number of files to check (performance limit)
+
+    Returns:
+        Modification timestamp of the newest source file, or None if none found
+    """
+    latest_time = None
+    files_checked = 0
+
+    def update_latest(path: Path) -> bool:
+        nonlocal latest_time, files_checked
+        if files_checked >= max_files:
+            return False
+        try:
+            if path.exists():
+                mtime = path.stat().st_mtime
+                if latest_time is None or mtime > latest_time:
+                    latest_time = mtime
+                files_checked += 1
+        except OSError:
+            pass
+        return True
+
+    # Check .uproject file
+    for uproject in project_root.glob("*.uproject"):
+        if not update_latest(uproject):
+            break
+
+    # Check DefaultEngine.ini
+    engine_ini = project_root / "Config" / "DefaultEngine.ini"
+    update_latest(engine_ini)
+
+    # Check Source directory if it exists
+    source_dir = project_root / "Source"
+    if source_dir.exists():
+        # Check C++ source files
+        for pattern in ["**/*.cpp", "**/*.h", "**/*.Build.cs"]:
+            try:
+                for source_file in source_dir.glob(pattern):
+                    if not update_latest(source_file):
+                        break
+            except OSError:
+                pass
+            if files_checked >= max_files:
+                break
+
+    return latest_time
+
+
+def needs_rebuild(project_path: Path) -> tuple[bool, str]:
+    """
+    Check if a UE5 project needs rebuilding.
+
+    Compares build artifact modification times against source file modification times
+    to determine if a rebuild is required.
+
+    Args:
+        project_path: Path to .uproject file
+
+    Returns:
+        Tuple of (needs_rebuild: bool, reason: str)
+        - (True, reason) if rebuild is needed
+        - (False, reason) if build is up-to-date
+    """
+    if not project_path.exists():
+        return True, f"Project file not found: {project_path}"
+
+    project_root = project_path.parent
+    project_name = project_path.stem
+
+    # Get build artifact time
+    artifact_time = _get_latest_build_artifact_time(project_root, project_name)
+    if artifact_time is None:
+        return True, "No build artifacts found (first build)"
+
+    # Get source modification time
+    source_time = _get_latest_source_modification_time(project_root)
+    if source_time is None:
+        # No source files found - unusual but possible for Blueprint-only projects
+        return False, "Build is up-to-date (no source files found)"
+
+    # Compare times
+    if source_time > artifact_time:
+        return True, "Source files modified after last build"
+
+    return False, "Build is up-to-date"
+
+
 def find_skills_root(start_path: Optional[Path] = None) -> Optional[Path]:
     """
     Find the skills root directory by searching upward.

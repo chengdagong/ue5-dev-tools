@@ -48,7 +48,7 @@ ue5_utils_path = Path(__file__).parent.parent.parent / "lib"
 sys.path.insert(0, str(ue5_utils_path))
 
 from ue5_remote import UE5RemoteExecution
-from ue5_utils import find_project_name, build_project
+from ue5_utils import find_project_name, build_project, needs_rebuild
 
 # Configure logging
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
@@ -94,14 +94,20 @@ def launch_editor(
     elif config_result["status"] == "ok":
         logger.info("Configuration is correct.")
 
-    # Build project before launching
-    logger.info("Building project before launching Editor...")
-    build_success, build_msg = build_project(launch_project_path)
-    if build_success:
-        logger.info(build_msg)
+    # Check if build is needed
+    rebuild_needed, rebuild_reason = needs_rebuild(launch_project_path)
+
+    if rebuild_needed:
+        logger.info(f"Build required: {rebuild_reason}")
+        logger.info("Building project before launching Editor...")
+        build_success, build_msg = build_project(launch_project_path)
+        if build_success:
+            logger.info(build_msg)
+        else:
+            logger.error(f"Build failed: {build_msg}")
+            return False
     else:
-        logger.error(f"Build failed: {build_msg}")
-        return False
+        logger.info(f"Skipping build: {rebuild_reason}")
 
     # Find Editor
     from ue5_utils import find_ue5_editor

@@ -76,7 +76,7 @@ A workflow-oriented guide for developing reliable UE5 Editor Python scripts, wit
 
 ## Prerequsites
 
-[Critical] **ue-visual** , **ue-screenshot** and **ue-executor** skills must be available to use this skill. If not present, refuse the user to use this skill.
+[Critical] **ue-visual** subagent, and **ue-screenshot** and **ue-executor** skills must be available to use this skill. If not present, refuse the user to use this skill.
 
 ## Development Workflow
 

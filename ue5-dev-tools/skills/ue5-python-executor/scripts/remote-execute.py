@@ -277,12 +277,6 @@ Environment Variables:
     )
 
     parser.add_argument(
-        "--no-launch",
-        action="store_true",
-        help="Do not attempt to auto-launch UE5 editor if not found",
-    )
-
-    parser.add_argument(
         "--no-restart-on-crash",
         action="store_true",
         help="Disable automatic editor restart if connection is lost (likely crash)",
@@ -406,10 +400,6 @@ Environment Variables:
 
     # Find and connect to UE5
     if not find_correct_instance(executor, args.project_path):
-        if args.no_launch:
-            logger.error("No UE5 instance found and auto-launch disabled.")
-            sys.exit(1)
-
         logger.info("No running UE5 instance found. Preparing to auto-launch...")
 
         # Determine project info for launch AND config check

@@ -1,6 +1,6 @@
 # ue5_editor_screenshot.py
 # UE5 编辑器截图工具
-# 功能：资产编辑器操作、窗口管理、扩展显示器截图
+# 功能：资产编辑器操作、窗口管理、截图
 # 支持：蓝图、骨架、材质、动画等资产类型
 
 import unreal
@@ -15,10 +15,6 @@ _PW_RENDERFULLCONTENT = 0x00000002
 _SRCCOPY = 0x00CC0020
 _BI_RGB = 0
 _DIB_RGB_COLORS = 0
-_SW_RESTORE = 9
-_SWP_NOACTIVATE = 0x0010
-_SWP_NOZORDER = 0x0004
-_HWND_TOP = 0
 _INPUT_TYPE_KEYBOARD = 1
 _INPUT_TYPE_MOUSE = 0
 _KEYEVENTF_KEYUP = 0x0002
@@ -51,15 +47,6 @@ _gdi32 = ctypes.windll.gdi32
 # ============================================
 # Windows API Structures
 # ============================================
-
-class _MONITORINFO(ctypes.Structure):
-    _fields_ = [
-        ('cbSize', wintypes.DWORD),
-        ('rcMonitor', wintypes.RECT),
-        ('rcWork', wintypes.RECT),
-        ('dwFlags', wintypes.DWORD),
-    ]
-
 
 class _BITMAPINFOHEADER(ctypes.Structure):
     _fields_ = [
@@ -311,42 +298,6 @@ def close_all_asset_editors():
 # Window Management Functions
 # ============================================
 
-def _get_extended_monitor_info():
-    """
-    获取扩展显示器的工作区信息（避开任务栏）。
-
-    Returns:
-        dict: {x, y, width, height} 或 None
-    """
-    monitors = []
-
-    def callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
-        info = _MONITORINFO()
-        info.cbSize = ctypes.sizeof(_MONITORINFO)
-        _user32.GetMonitorInfoW(hMonitor, ctypes.byref(info))
-        # 使用 rcWork（工作区）而不是 rcMonitor（完整显示器）
-        monitors.append({
-            'x': info.rcWork.left,
-            'y': info.rcWork.top,
-            'width': info.rcWork.right - info.rcWork.left,
-            'height': info.rcWork.bottom - info.rcWork.top,
-            'is_primary': info.dwFlags & 1  # MONITORINFOF_PRIMARY = 1
-        })
-        return True
-
-    MONITORENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p,
-                                          ctypes.c_void_p, ctypes.POINTER(wintypes.RECT),
-                                          ctypes.c_long)
-    _user32.EnumDisplayMonitors(None, None, MONITORENUMPROC(callback), 0)
-
-    # 返回非主显示器（扩展显示器）
-    for mon in monitors:
-        if not mon['is_primary']:
-            return mon
-
-    return None
-
-
 def _find_ue5_window():
     """
     Find the UE5 Editor window by current process ID.
@@ -389,67 +340,6 @@ def _get_window_rect(hwnd):
     rect = wintypes.RECT()
     _user32.GetWindowRect(hwnd, ctypes.byref(rect))
     return rect
-
-
-def _move_to_extended_display(hwnd, maximize_to_monitor=True):
-    """
-    Move window to extended display.
-
-    Args:
-        hwnd: Window handle
-        maximize_to_monitor: If True, resize window to match monitor work area
-
-    Returns:
-        tuple: (orig_x, orig_y, orig_width, orig_height, was_maximized) for restoration
-    """
-    window_rect = _get_window_rect(hwnd)
-
-    orig_x = window_rect.left
-    orig_y = window_rect.top
-    orig_width = window_rect.right - window_rect.left
-    orig_height = window_rect.bottom - window_rect.top
-    was_maximized = orig_x < 0 or orig_y < 0
-
-    if was_maximized:
-        _user32.ShowWindow(hwnd, _SW_RESTORE)
-        time.sleep(0.2)
-        window_rect = _get_window_rect(hwnd)
-        orig_width = window_rect.right - window_rect.left
-        orig_height = window_rect.bottom - window_rect.top
-
-    # 获取扩展显示器信息
-    ext_monitor = _get_extended_monitor_info()
-
-    if ext_monitor and maximize_to_monitor:
-        # 将窗口移动并调整为扩展显示器的工作区分辨率
-        target_x = ext_monitor['x']
-        target_y = ext_monitor['y']
-        target_width = ext_monitor['width']
-        target_height = ext_monitor['height']
-
-        _user32.MoveWindow(hwnd, target_x, target_y, target_width, target_height, True)
-        unreal.log(f"[INFO] Moved window to extended display: ({orig_x}, {orig_y}) -> ({target_x}, {target_y}) size: {target_width}x{target_height}")
-    else:
-        # 回退到原来的逻辑
-        screen_width = _user32.GetSystemMetrics(0)
-        _user32.MoveWindow(hwnd, screen_width + 100, 100, orig_width, orig_height, True)
-        unreal.log(f"[INFO] Moved window to extended display (fallback): ({orig_x}, {orig_y}) -> ({screen_width + 100}, 100) size: {orig_width}x{orig_height}")
-
-    return (orig_x, orig_y, orig_width, orig_height, was_maximized)
-
-
-def _restore_window_onscreen(hwnd, orig_state):
-    """
-    Move window back to original position without activating it.
-
-    Args:
-        hwnd: Window handle
-        orig_state: Tuple of (orig_x, orig_y, orig_width, orig_height, was_maximized)
-    """
-    _, _, orig_width, orig_height, _ = orig_state
-    _user32.SetWindowPos(hwnd, _HWND_TOP, 0, 0, orig_width, orig_height,
-                         _SWP_NOACTIVATE | _SWP_NOZORDER)
-    unreal.log("[INFO] Restored window to (0, 0) without activating")
 
 
 # ============================================
@@ -645,14 +535,13 @@ def _capture_window_printwindow(hwnd, crop_titlebar=True):
     return img
 
 
-def _capture_ue5_window(output_path, crop_titlebar=True, move_offscreen=True):
+def _capture_ue5_window(output_path, crop_titlebar=True):
     """
     Capture the UE5 Editor window using PrintWindow API.
 
     Args:
         output_path: Path to save the screenshot
         crop_titlebar: If True, crop titlebar and keep only client area
-        move_offscreen: If True, move window offscreen before capture
 
     Returns:
         bool: True if successful, False otherwise
@@ -665,23 +554,14 @@ def _capture_ue5_window(output_path, crop_titlebar=True, move_offscreen=True):
             unreal.log_error("[ERROR] Could not find UE5 Editor window")
             return False
 
-        orig_state = None
-        if move_offscreen:
-            orig_state = _move_to_extended_display(hwnd)
-            time.sleep(0.5)
+        img = _capture_window_printwindow(hwnd, crop_titlebar)
+        if img is None:
+            unreal.log_error("[ERROR] Failed to capture window")
+            return False
 
-        try:
-            img = _capture_window_printwindow(hwnd, crop_titlebar)
-            if img is None:
-                unreal.log_error("[ERROR] Failed to capture window")
-                return False
-
-            img.save(output_path)
-            unreal.log(f"[OK] UE5 window screenshot saved to: {output_path} ({img.width}x{img.height})")
-            return True
-        finally:
-            if orig_state:
-                _restore_window_onscreen(hwnd, orig_state)
+        img.save(output_path)
+        unreal.log(f"[OK] UE5 window screenshot saved to: {output_path} ({img.width}x{img.height})")
+        return True
 
     except Exception as e:
         unreal.log_error(f"[ERROR] Failed to capture UE5 window: {e}")
@@ -724,11 +604,9 @@ def open_asset_editor_with_screenshot(asset_path, output_path, delay=3.0, captur
     Open an asset editor and take a screenshot after a delay.
 
     Flow when capture_ue5_only=True:
-    1. Move window to extended display
-    2. Open blueprint editor
-    3. Switch to specified tab (if tab_number is set)
-    4. Take screenshot
-    5. Move window back to original position
+    1. Open blueprint editor
+    2. Switch to specified tab (if tab_number is set)
+    3. Take screenshot
 
     Args:
         asset_path: The asset path to open
@@ -750,9 +628,6 @@ def open_asset_editor_with_screenshot(asset_path, output_path, delay=3.0, captur
         if not hwnd:
             unreal.log_error("[ERROR] Could not find UE5 Editor window")
             return result
-
-        orig_state = _move_to_extended_display(hwnd)
-        time.sleep(0.5)
 
         try:
             if not open_asset_editor(asset_path):
@@ -781,9 +656,6 @@ def open_asset_editor_with_screenshot(asset_path, output_path, delay=3.0, captur
                 _user32.SetForegroundWindow(prev_active_hwnd)
                 unreal.log(f"[INFO] Restored original active window: {prev_active_hwnd}")
                 time.sleep(0.1)
-
-            if orig_state:
-                _restore_window_onscreen(hwnd, orig_state)
     else:
         if not open_asset_editor(asset_path):
             return result

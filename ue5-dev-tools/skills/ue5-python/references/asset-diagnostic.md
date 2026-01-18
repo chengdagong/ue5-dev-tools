@@ -1,8 +1,25 @@
-# asset_diagnostic Module Reference
+# Asset Diagnostic Module API Reference
+
+> **Note**: This document describes the Python module API for advanced users. For most use cases, we recommend using the CLI wrapper script instead.
+
+## Recommended: Use CLI Script
+
+For asset diagnostics, use the standalone script:
+
+```bash
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
+    --args "asset_path=/Game/Maps/TestLevel,verbose=true"
+```
+
+See [Capture Scripts Reference](./capture-scripts.md) for detailed CLI usage.
+
+## Advanced: Module API
 
 UE5 Asset Diagnostic Module - A modular diagnostic tool for analyzing UE5 assets.
 
 > **Important:** This module must be executed in the Unreal Engine Python environment. Use `remote-execute.py` to send code snippet or scripts to the running UE5 Editor.
+
+This section documents the underlying Python module for custom integration.
 
 ## Quick Start
 

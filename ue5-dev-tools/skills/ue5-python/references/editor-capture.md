@@ -1,8 +1,23 @@
-# Editor Capture Module
+# Editor Capture Module API Reference
+
+> **Note**: This document describes the Python module API for advanced users who need custom integration. For most use cases, we recommend using the CLI wrapper scripts instead. See [Capture Scripts Reference](./capture-scripts.md) for CLI documentation.
+
+## Recommended: Use CLI Scripts
+
+For common screenshot and capture tasks, use the standalone scripts:
+- **orbital-capture.py** - Multi-angle screenshots
+- **pie-capture.py** - PIE runtime capture
+- **window-capture.py** - Editor window capture
+
+See [Capture Scripts Reference](./capture-scripts.md) for detailed CLI usage.
+
+## Advanced: Module API
 
 Screenshot capture and editor automation toolkit for UE5.
 
 **Location:** `site-packages/editor_capture/`
+
+This section documents the underlying Python modules for users who need to integrate capture functionality into custom scripts.
 
 ## Overview
 

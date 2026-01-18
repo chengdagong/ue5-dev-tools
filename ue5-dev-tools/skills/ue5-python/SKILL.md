@@ -78,9 +78,24 @@ A workflow-oriented guide for developing reliable UE5 Editor Python scripts, wit
 
 [Critical] **ue5-visual** subagent and **ue5-python-executor** skill must be available to use this skill. If not present, refuse the user to use this skill.
 
-The **editor_capture** module (bundled in `site-packages/`) provides screenshot capabilities for visual verification. This module runs inside UE5 Editor - use **ue5-python-executor** skill (remote-execute.py) to execute.
+### CLI Scripts for Screenshot and Diagnostics
 
-The **asset_diagnostic** module (bundled in `site-packages/`) provides automated issue detection for levels and assets. This module runs inside UE5 Editor - use **ue5-python-executor** skill (remote-execute.py) to execute.
+The `scripts/` directory provides command-line wrappers for screenshot capture and asset diagnostics:
+
+- **orbital-capture.py** - Multi-angle SceneCapture2D screenshots (perspective, orthographic, bird's eye views)
+- **pie-capture.py** - PIE runtime screenshot capture with auto-capture at intervals
+- **window-capture.py** - Editor window screenshots via Windows API (Windows only)
+- **asset-diagnostic.py** - Asset and level issue detection and diagnosis
+
+All scripts are executed via **ue5-python-executor** skill using remote-execute.py:
+
+```bash
+python scripts/remote-execute.py --file scripts/<script-name>.py --args "param1=value1,param2=value2"
+```
+
+For detailed parameter documentation, see [Capture Scripts Reference](./references/capture-scripts.md).
+
+**Advanced Usage**: The underlying Python modules (`editor_capture`, `asset_diagnostic`) are available in `site-packages/` for custom script integration. See `examples/` directory and [Editor Capture API](./references/editor-capture.md).
 
 ## Development Workflow
 
@@ -111,9 +126,19 @@ Elements in a scene include atmosphere, lighting, ground, actors, etc
 
 Every scene-setup script step should have three substeps:
 
-- x.1 - Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
-- x.2 - Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
-- x.3 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+- x.1 - Run asset diagnostic to check for issues:
+  ```bash
+  python scripts/remote-execute.py --file scripts/asset-diagnostic.py
+  ```
+  Fix all errors and warnings, repeat until clean
+
+- x.2 - Capture orbital screenshots for visual verification:
+  ```bash
+  python scripts/remote-execute.py --file scripts/orbital-capture.py \
+      --args "target_x=0,target_y=0,target_z=100,preset=orthographic,distance=500"
+  ```
+
+- x.3 - **MANDATORY**: Use *ue5-visual* subagent to analyze all captured screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### 2. Configuration Scripts
 
@@ -123,19 +148,44 @@ To configure properties, gameplaytags, abilities, subcomponents blueprints, skel
 
 Every configuration script step should have three substeps:
 
-- x.1 - Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
-- x.2 - Use `editor_capture.window_capture` to capture editor window screenshots (viewport, event graph, etc)
-- x.3 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+- x.1 - Run asset diagnostic to verify configuration:
+  ```bash
+  python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
+      --args "asset_path=/Game/YourAsset"
+  ```
+  Fix all errors and warnings, repeat until clean
+
+- x.2 - Capture editor window screenshot:
+  ```bash
+  python scripts/remote-execute.py --file scripts/window-capture.py \
+      --args "command=asset,asset_path=/Game/YourAsset,output_file=C:/Screenshots/config.png,tab=1"
+  ```
+
+- x.3 - **MANDATORY**: Use *ue5-visual* subagent to verify the screenshot, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
 
 #### 3. Integration test scripts
 
-To run the scene in PIE mode, use tick-based method to take screenshots along the timeline. Reference the [PIE screenshot capturer example](./examples/pie_screenshot_capturer.py) for implementation.
-
-Every integration test script step should have ONE substep:
+To run the scene in PIE mode and capture screenshots during runtime. Use the PIE capture script for automated screenshot capture.
 
 ##### Testing
 
-- x.1 - Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots taken by the integration test script, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+Every integration test script step should have three substeps:
+
+- x.1 - Start PIE capture before running test:
+  ```bash
+  python scripts/remote-execute.py --file scripts/pie-capture.py \
+      --args "command=start,output_dir=C:/Captures,interval=1.0,multi_angle=true,auto_start_pie=true"
+  ```
+
+- x.2 - Stop PIE capture when test completes:
+  ```bash
+  python scripts/remote-execute.py --file scripts/pie-capture.py \
+      --args "command=stop"
+  ```
+
+- x.3 - **MANDATORY**: Use *ue5-visual* subagent to analyze all captured frames, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+
+**Note**: For advanced custom integration, see the [PIE screenshot capturer example](./examples/pie_screenshot_capturer.py) for implementation reference.
 
 #### **Example:**
 
@@ -264,118 +314,175 @@ If you are unsure about what UE5 Python API to use or encounter issues, use **ue
 
 ### Visual Verification
 
-For visual verification of script results, use the **editor_capture** module:
+After running your scripts, capture screenshots using the CLI wrapper scripts:
 
-| Module | Use Case |
-|--------|----------|
-| `editor_capture.orbital` | Level/scene verification (multi-angle SceneCapture2D) |
-| `editor_capture.window_capture` | Editor window verification (viewport, Blueprint graphs) |
-| `editor_capture.asset_editor` | Open/close asset editors programmatically |
+| Script | Use Case | Key Parameters |
+|--------|----------|----------------|
+| orbital-capture.py | Multi-angle level/scene screenshots | target_location, preset, distance, resolution |
+| window-capture.py | Editor window/Blueprint screenshots | command, asset_path, output_file, tab |
+| pie-capture.py | PIE runtime verification | command, output_dir, interval, multi_angle |
 
-For PIE runtime verification, use the [PIE screenshot capturer example](./examples/pie_screenshot_capturer.py).
+**All scripts are located in**: `ue5-dev-tools/skills/ue5-python/scripts/`
 
-#### Mandatory Visual Analysis
+#### Mandatory Visual Analysis Workflow
 
-After capturing screenshots, you **MUST** use the **ue5-visual** subagent to analyze them:
+After capturing screenshots, you **MUST** use the **ue5-visual** subagent to analyze them for issues.
 
-1. **Static Scene Verification** (levels, environments, lighting):
-   ```python
-   from editor_capture import orbital
-   world = unreal.EditorLevelLibrary.get_editor_world()
-   results = orbital.take_orbital_screenshots(world, target_location=unreal.Vector(0,0,100))
-   ```
-   - Run `ue5-visual` subagent to detect rendering issues, physics anomalies, asset problems. Use very strict standard, the only purpose is to find out as many flaws and issues as possible.
+#### 1. Static Scene Verification (Levels, Environments)
 
-2. **Blueprint/Asset Verification** (inside UE5 editor):
-   ```python
-   from editor_capture import window_capture, asset_editor
-   asset_editor.open_asset_editor('/Game/Blueprints/BP_MyActor')
-   window_capture.capture_ue5_window('screenshots/blueprint.png')
-   ```
-   - Run `ue5-visual` subagent to analyze each screenshot for visual issues. Use very strict standard, the only purpose is to find out as many flaws and issues as possible.
+**Capture orbital screenshots**:
+```bash
+python scripts/remote-execute.py --file scripts/orbital-capture.py \
+    --args "target_x=0,target_y=0,target_z=100,preset=orthographic,distance=500"
+```
 
-3. **Runtime/Gameplay Verification** (PIE mode):
-   - Implement tick-based screenshot capture in your test script
-   - Run `ue5-visual` subagent to analyze each screenshot for visual issues. Use very strict standard, the only purpose is to find out as many flaws and issues as possible.
+**Common presets**:
+- `orthographic` - 6 technical views (front, back, left, right, top, bottom)
+- `perspective` - 4 horizontal views at eye level
+- `birdseye` - 4 elevated 45-degree views
+- `all` - All available views
+
+**Then analyze with ue5-visual** to detect visual issues.
+
+#### 2. Blueprint/Asset Configuration Verification
+
+**Capture editor window**:
+```bash
+# Capture current window
+python scripts/remote-execute.py --file scripts/window-capture.py \
+    --args "command=window,output_file=C:/Screenshots/editor.png"
+
+# Open specific asset and capture
+python scripts/remote-execute.py --file scripts/window-capture.py \
+    --args "command=asset,asset_path=/Game/BP_Test,output_file=C:/Screenshots/bp.png,tab=1"
+
+# Batch capture multiple assets
+python scripts/remote-execute.py --file scripts/window-capture.py \
+    --args "command=batch,asset_list=/Game/BP1,/Game/BP2,output_dir=C:/Screenshots"
+```
+
+**Tab numbers** (for Blueprint editor):
+- 1 = Viewport
+- 2 = Construction Script
+- 3 = Event Graph
+
+**Platform requirement**: Windows only (uses Windows API)
+
+**Then analyze with ue5-visual** to verify configuration.
+
+#### 3. Runtime/Gameplay Verification (PIE Mode)
+
+**Start PIE capture**:
+```bash
+python scripts/remote-execute.py --file scripts/pie-capture.py \
+    --args "command=start,output_dir=C:/Captures,interval=1.0,multi_angle=true,auto_start_pie=true"
+```
+
+**Multi-angle capture** provides 4 views: Front, Side, Top, 45° Perspective
+
+**Stop capture when done**:
+```bash
+python scripts/remote-execute.py --file scripts/pie-capture.py \
+    --args "command=stop"
+```
+
+**Check capture status**:
+```bash
+python scripts/remote-execute.py --file scripts/pie-capture.py \
+    --args "command=status"
+```
+
+**Then analyze with ue5-visual** to verify runtime behavior.
+
+#### Script Help
+
+For detailed parameter documentation:
+```bash
+python scripts/orbital-capture.py --help
+python scripts/pie-capture.py --help
+python scripts/window-capture.py --help
+```
+
+Or see [Capture Scripts Reference](./references/capture-scripts.md) for comprehensive CLI documentation.
 
 [Critical] Do NOT skip visual analysis. Screenshots alone do not verify correctness - the ue5-visual agent identifies problems humans might miss.
 
 ### Asset Diagnostic
 
-Before visual verification, use `asset_diagnostic` to detect and fix issues programmatically.
+Before visual verification, use `asset-diagnostic.py` to detect and fix issues programmatically.
 
-**Basic Usage:**
+#### Basic Usage
 
 ```bash
-# Run via remote-execute.py (ue5-python-executor skill)
-python remote-execute.py --code "
-import asset_diagnostic
-
 # Diagnose current level (default)
-result = asset_diagnostic.diagnose()
-print(result)
-"
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py
 
 # Diagnose specific asset
-python remote-execute.py --code "
-import asset_diagnostic
-result = asset_diagnostic.diagnose('/Game/Maps/MyLevel')
-print(result)
-"
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
+    --args "asset_path=/Game/Maps/TestLevel"
 
 # Verbose mode for detailed analysis
-python remote-execute.py --code "
-import asset_diagnostic
-result = asset_diagnostic.diagnose(verbose=True)
-print(result)
-"
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
+    --args "asset_path=/Game/Maps/TestLevel,verbose=true"
 ```
 
-**Interpreting Results:**
+#### Available Parameters
 
-```bash
-# Run via remote-execute.py (ue5-python-executor skill)
-python remote-execute.py --code "
-import asset_diagnostic
+- **asset_path** - Path to asset (default: current level in editor)
+- **asset_type** - Override asset type detection (auto-detected if omitted)
+- **verbose** - Enable detailed diagnostic output (true/false)
 
-result = asset_diagnostic.diagnose()
+#### Supported Asset Types
 
-if result.has_errors:
-    # Critical issues that must be fixed
-    print(f'Errors: {result.error_count}')
+- **Level** - Map/World assets
+- **Blueprint** - Blueprint classes
+- **SkeletalMesh** - Skeletal mesh assets
+- **StaticMesh** - Static mesh assets
 
-if result.has_warnings:
-    # Potential issues that should be addressed
-    print(f'Warnings: {result.warning_count}')
-"
+#### Interpreting Results
+
+The script outputs diagnostic results with error and warning counts:
+
+```
+Asset Diagnostic Results for /Game/Maps/TestLevel
+==================================================
+Status: PASS (no issues found)
+
+Or:
+
+Status: ISSUES FOUND
+Errors: 2
+Warnings: 3
+
+[Detailed issue list...]
 ```
 
-**Fix-and-Recheck Loop:**
+Fix all errors before proceeding to visual verification.
+
+#### Fix-and-Recheck Loop
+
+1. Run diagnostic and note all issues
+2. Fix reported issues in your script
+3. Re-run diagnostic
+4. Repeat until status is PASS
+
+#### Example Workflow
 
 ```bash
-# Run via remote-execute.py (ue5-python-executor skill)
-python remote-execute.py --code "
-import asset_diagnostic
+# Initial diagnostic
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
+    --args "asset_path=/Game/Maps/TestLevel,verbose=true"
 
-# Run diagnostic
-result = asset_diagnostic.diagnose()
+# [Fix issues in your script...]
 
-# Loop until clean
-while result.has_errors or result.has_warnings:
-    # Fix issues based on result.issues
-    # ... your fix code here ...
-
-    # Re-run diagnostic
-    result = asset_diagnostic.diagnose()
-
-# Now proceed to visual verification
-print('All issues resolved, ready for visual verification')
-"
+# Verify fixes
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
+    --args "asset_path=/Game/Maps/TestLevel"
 ```
 
 [Critical] Always fix all errors and warnings before proceeding to visual capture and verification.
 
-See [Asset Diagnostic API](./references/asset-diagnostic.md) for complete documentation.
+For detailed API documentation, see [Asset Diagnostic Reference](./references/asset-diagnostic.md).
 
 ## Best Practices
 
@@ -494,40 +601,64 @@ unreal.ExBlueprintComponentLibrary.set_component_socket_attachment(
 )
 ```
 
-## Editor Capture Library
+## Capture Scripts
 
-The `editor_capture` module provides screenshot and editor automation APIs, available in UE5 Python environment.
+The `scripts/` directory provides CLI wrappers for screenshot capture and diagnostics. These scripts wrap the underlying `editor_capture` and `asset_diagnostic` Python modules for easy command-line usage.
 
-**Capabilities:**
-- **Orbital screenshots** - Multi-angle SceneCapture2D (perspective, orthographic, bird's eye)
-- **Asset editor ops** - Open/close asset editors programmatically
-- **Window capture** - Capture UE5 window screenshots (Windows only, requires Pillow)
+### Available Scripts
 
-**Basic Usage:**
+#### orbital-capture.py
+Multi-angle SceneCapture2D screenshots with configurable presets.
 
+**Quick Example**:
 ```bash
-# Orbital screenshots (auto-cleanup enabled by default)
-python remote-execute.py --code "
-import unreal
-from editor_capture import orbital
-world = unreal.EditorLevelLibrary.get_editor_world()
-orbital.take_orbital_screenshots(world, target_location=unreal.Vector(0,0,100))
-"
-
-# Asset editor operations
-python remote-execute.py --code "
-from editor_capture import asset_editor
-asset_editor.open_asset_editor('/Game/Blueprints/BP_MyActor')
-"
-
-# Window capture (Windows only)
-python remote-execute.py --code "
-from editor_capture import window_capture
-window_capture.capture_ue5_window('C:/Screenshots/editor.png')
-"
+python scripts/remote-execute.py --file scripts/orbital-capture.py \
+    --args "target_x=0,target_y=0,target_z=100,preset=orthographic"
 ```
 
-See [Editor Capture API](./references/editor-capture.md) for complete documentation.
+#### pie-capture.py
+PIE runtime screenshot capture with multi-angle support and auto-capture.
+
+**Quick Example**:
+```bash
+python scripts/remote-execute.py --file scripts/pie-capture.py \
+    --args "command=start,output_dir=C:/Captures,auto_start_pie=true"
+```
+
+#### window-capture.py
+Editor window capture via Windows API (Windows only).
+
+**Quick Example**:
+```bash
+python scripts/remote-execute.py --file scripts/window-capture.py \
+    --args "command=window,output_file=C:/Screenshots/editor.png"
+```
+
+#### asset-diagnostic.py
+Asset and level issue detection with verbose diagnostics.
+
+**Quick Example**:
+```bash
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
+    --args "verbose=true"
+```
+
+### Detailed Documentation
+
+- **[Capture Scripts Reference](./references/capture-scripts.md)** - Complete CLI parameter guide with examples
+- **[Editor Capture API](./references/editor-capture.md)** - Python module API for advanced usage
+- **[Asset Diagnostic API](./references/asset-diagnostic.md)** - Python module API for diagnostics
+
+### Advanced: Module Usage
+
+For custom integration in your own scripts, the underlying Python modules are available:
+- `editor_capture.orbital`
+- `editor_capture.pie_capture`
+- `editor_capture.window_capture`
+- `editor_capture.asset_editor`
+- `asset_diagnostic`
+
+See `examples/pie_screenshot_capturer.py` for a module usage example.
 
 ## Additional Resources
 

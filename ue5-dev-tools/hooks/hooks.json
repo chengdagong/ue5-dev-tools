@@ -1,5 +1,17 @@
 {
     "description": "UE5 Python development workflow hooks",
     "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Write|Edit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python ${CLAUDE_PLUGIN_ROOT}/hooks/check-api-usage.py",
+                        "timeout": 10
+                    }
+                ]
+            }
+        ]
     }
 }

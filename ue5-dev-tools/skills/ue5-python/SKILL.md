@@ -72,596 +72,126 @@ hooks:
 ---
 # UE5 Python Script Development Guide
 
-A workflow-oriented guide for developing reliable UE5 Editor Python scripts, with emphasis on proper development cycles and common pitfalls.
+A workflow-oriented guide for developing reliable UE5 Editor Python scripts.
 
 ## Prerequisites
 
-[Critical] **ue5-visual** subagent and **ue5-python-executor** skill must be available to use this skill. If not present, refuse the user to use this skill.
+[Critical] **ue5-visual** subagent and **ue5-python-executor** skill must be available. If not present, refuse to use this skill.
 
-### CLI Scripts for Screenshot and Diagnostics
-
-The `scripts/` directory provides command-line wrappers for screenshot capture and asset diagnostics:
-
-- **orbital-capture.py** - Multi-angle SceneCapture2D screenshots (perspective, orthographic, bird's eye views)
-- **pie-capture.py** - PIE runtime screenshot capture with auto-capture at intervals
-- **window-capture.py** - Editor window screenshots via Windows API (Windows only)
-- **asset-diagnostic.py** - Asset and level issue detection and diagnosis
-
-All scripts are executed via **ue5-python-executor** skill using remote-execute.py:
-
-```bash
-python scripts/remote-execute.py --file scripts/<script-name>.py --args "param1=value1,param2=value2"
-```
-
-For detailed parameter documentation, see [Capture Scripts Reference](./references/capture-scripts.md).
-
-**Advanced Usage**: The underlying Python modules (`editor_capture`, `asset_diagnostic`) are available in `site-packages/` for custom script integration. See `examples/` directory and [Editor Capture API](./references/editor-capture.md).
+CLI scripts for capture and diagnostics are in `scripts/`. See [Capture Scripts Reference](./references/capture-scripts.md) for details.
 
 ## Development Workflow
 
-This workflow has two levels:
-
-1. **Planning phase** - Understand requirements and break into subtasks
-2. **Per-script cycle** - Each script goes through: Write → Test → Verify → Fix → Complete
-
 ### Phase 1: Requirements
 
-Clarify the requirements with user using AskUserQuestions tool, until you have 95% confidence that you have fully understood user's intentions and requirements.
+Clarify requirements with user using AskUserQuestions tool until you have 95% confidence in understanding their intentions.
 
----
+### Phase 2: Planning
 
-### Phase 2: Make a plan
+**Do not implement yet - just plan.**
 
-**Do not implement yet—just plan.**
+[Critical] Every step implements and tests ONE script. Three types allowed:
 
-**[Critical]** Every step in the plan is to implements and tests a script. No other kind of steps is allowed in the plan. Bellow three kind of scripts are allowed.
+#### Script Types
 
-#### 1. Scene-Setup Scripts
+| Type | Purpose | Testing Steps |
+|------|---------|---------------|
+| **Scene-Setup** | Setup static scene (atmosphere, lighting, actors) | diagnostic -> orbital capture -> ue5-visual analysis |
+| **Configuration** | Configure properties, tags, physics, collisions | diagnostic -> window capture -> ue5-visual analysis |
+| **Integration Test** | Run scene in PIE mode | PIE capture -> ue5-visual analysis |
 
-Scene-setup scripts are used to setup static scene (if necessary).
+#### Testing Protocol
 
-Elements in a scene include atmosphere, lighting, ground, actors, etc
+Each script step has three substeps:
 
-##### Testing
+- **x.1** - Run `asset-diagnostic.py` to check for issues, fix all errors/warnings
+- **x.2** - Capture screenshots (orbital/window/PIE based on script type)
+- **x.3** - **MANDATORY**: Use *ue5-visual* subagent to analyze screenshots
 
-Every scene-setup script step should have three substeps:
+#### Example Plan
 
-- x.1 - Run asset diagnostic to check for issues:
-  ```bash
-  python scripts/remote-execute.py --file scripts/asset-diagnostic.py
-  ```
-  Fix all errors and warnings, repeat until clean
-
-- x.2 - Capture orbital screenshots for visual verification:
-  ```bash
-  python scripts/remote-execute.py --file scripts/orbital-capture.py \
-      --args "target_x=0,target_y=0,target_z=100,preset=orthographic,distance=500"
-  ```
-
-- x.3 - **MANDATORY**: Use *ue5-visual* subagent to analyze all captured screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
-
-#### 2. Configuration Scripts
-
-To configure properties, gameplaytags, abilities, subcomponents blueprints, skeletons, sockets, physical constrains, collisions, etc.
-
-##### Testing
-
-Every configuration script step should have three substeps:
-
-- x.1 - Run asset diagnostic to verify configuration:
-  ```bash
-  python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-      --args "asset_path=/Game/YourAsset"
-  ```
-  Fix all errors and warnings, repeat until clean
-
-- x.2 - Capture editor window screenshot:
-  ```bash
-  python scripts/remote-execute.py --file scripts/window-capture.py \
-      --args "command=asset,asset_path=/Game/YourAsset,output_file=C:/Screenshots/config.png,tab=1"
-  ```
-
-- x.3 - **MANDATORY**: Use *ue5-visual* subagent to verify the screenshot, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
-
-#### 3. Integration test scripts
-
-To run the scene in PIE mode and capture screenshots during runtime. Use the PIE capture script for automated screenshot capture.
-
-##### Testing
-
-Every integration test script step should have three substeps:
-
-- x.1 - Start PIE capture before running test:
-  ```bash
-  python scripts/remote-execute.py --file scripts/pie-capture.py \
-      --args "command=start,output_dir=C:/Captures,interval=1.0,multi_angle=true,auto_start_pie=true"
-  ```
-
-- x.2 - Stop PIE capture when test completes:
-  ```bash
-  python scripts/remote-execute.py --file scripts/pie-capture.py \
-      --args "command=stop"
-  ```
-
-- x.3 - **MANDATORY**: Use *ue5-visual* subagent to analyze all captured frames, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
-
-**Note**: For advanced custom integration, see the [PIE screenshot capturer example](./examples/pie_screenshot_capturer.py) for implementation reference.
-
-#### **Example:**
-
-When user asks to "Create a level, in which an island is surrended by sea. On the island, two robots fight each other. Physical impacts should be shown.":
+For "Create island level with two fighting robots":
 
 ```markdown
-## Step 1: Scene-setup script - create_island_level.py
-Setup island, sea, atmosphere, light, and two robots standing face-to-face with each other
-- **Step 1.1**: Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
-- **Step 1.2**: Use `editor_capture.orbital` to capture multi-angle screenshots of the scene
-- **Step 1.3**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+## Step 1: Scene-setup - create_island_level.py
+Setup island, sea, atmosphere, light, and two robots
+- Step 1.1: Run asset diagnostic, fix issues
+- Step 1.2: Capture orbital screenshots
+- Step 1.3: [MANDATORY] ue5-visual analysis
 
-## Step 2: Configuration script - configure_robots.py
-In the script, check if collisions, physics, abilities of attack, etc are already configured. And then do the necessary configurations.
-- **Step 2.1**: Use `asset_diagnostic.diagnose()` to check for issues, fix all errors and warnings, repeat until clean
-- **Step 2.2**: Use `editor_capture.window_capture` to capture editor screenshots (viewport, event graph, etc)
-- **Step 2.3**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+## Step 2: Configuration - configure_robots.py
+Configure collisions, physics, attack abilities
+- Step 2.1: Run asset diagnostic, fix issues
+- Step 2.2: Capture window screenshots
+- Step 2.3: [MANDATORY] ue5-visual analysis
 
-## Step 3: Integration Test script - run_in_pie.py
-Setup in-game, tick-based, multiangle screen capture mechanism, and then play the level in PIE, collect screenshots.
-- **Step 3.1**: Mandatory step, DO NOT SKIP!! Use *ue5-visual* subagent to verify the screenshots, use very strict standard, and the only purpose is to find out as many flaws and issues as possible.
+## Step 3: Integration Test - run_in_pie.py
+Setup PIE capture, play level, collect screenshots
+- Step 3.1: [MANDATORY] ue5-visual analysis
 ```
 
-**[Critical] Todo List Requirement:** Add ALL substeps to the todo list using TodoWrite. Each substep (Step 1.1, Step 1.2, etc.) must be tracked as a separate todo item. This ensures granular progress tracking and prevents skipping steps.
+[Critical] Add ALL substeps to todo list using TodoWrite.
 
-### Script Organization
+#### Script Organization
 
-**[Critical]** Organize scripts in a task-specific subdirectory under the project's `Scripts` folder:
+Organize scripts in task-specific subdirectory:
 
 ```
 ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
-    ├── create_island_level.py              # Main implementation scripts
+    ├── create_island_level.py
     ├── configure_robots.py
-    ├── run_in_pie.py
-    ├── tmp/                           # Test/debug scripts
-    │   ├── try_activate_attack.py
-    │   └── test_collision.py
-    └── screenshots/                     # Verification screenshots
-        ├── orbital/                     # From editor_capture.orbital
-        │   └── capture_1/
-        ├── editor/                      # From editor_capture.window_capture
-        └── pie/                         # From PIE test script
+    ├── tmp/                    # Test/debug scripts
+    └── screenshots/            # Verification screenshots
+        ├── orbital/
+        ├── editor/
+        └── pie/
 ```
 
-**Rules:**
+### Phase 3: Implementation
 
-- Create a new subdirectory for each task (e.g., `Scripts/fist_collision/`, `Scripts/dark_pyramid_level/`)
-- Use descriptive, lowercase names with underscores
-- Place main implementation scripts directly in the task folder
-- Place temporary scripts in `tmp/` subdirectory
-- Save all verification screenshots in `screenshots/` subdirectory
-- This keeps the workspace organized and makes it easy to find/rerun scripts later
+1. [Critical] Check [Common Pitfalls](./references/common-pitfals/) for related documents
+2. Follow [Best Practices](./references/best-practices.md)
+3. Reference example scripts:
+   - [Add gameplay tag](./examples/add_gameplaytag_to_asset.py)
+   - [Create blendspace](./examples/create_footwork_blendspace.py)
+   - [Create level](./examples/create_sky_level.py)
+   - [Customize atmosphere](./examples/create_dark_pyramid_level.py)
+   - [Create blueprint with physics](./examples/create_punching_bag_blueprint.py)
+   - [PIE screenshot capturer](./examples/pie_screenshot_capturer.py)
 
----
+4. Use **ue5-python-executor** to run scripts
+5. Use **ue5-api-expert** to verify API usage when unsure
 
-### Phase 3: Script Implementation Cycle
+## Visual Verification
 
-Use your best knowledge of UE5 Python API and follow [best practices](#best-practices) to implement script.
+| Scenario | Script | Key Parameters |
+|----------|--------|----------------|
+| Static scene | `orbital-capture.py` | `preset`, `distance`, `target_x/y/z` |
+| Blueprint/Asset | `window-capture.py` | `command`, `asset_path`, `tab` |
+| PIE runtime | `pie-capture.py` | `command`, `interval`, `multi_angle` |
 
-#### Debug Visualization for Visual Verification
+**Presets for orbital capture**: `orthographic` (6 views), `perspective` (4 views), `birdseye` (4 views), `all` (14 views)
 
-**[Critical]** When writing scripts that create or modify visual elements, include debug visualization to enable precise visual verification:
+See [Capture Scripts Reference](./references/capture-scripts.md) for full parameter documentation.
 
-**What to visualize:**
+[Critical] Do NOT skip visual analysis. Use ue5-visual agent after every capture.
 
-- Object/character world coordinates (X, Y, Z)
-- Mesh bounding box dimensions (width, height, depth)
-- Distances between key objects
-- Facing directions and orientations
-- Attachment points and socket locations
+## Asset Diagnostic
 
-**How to implement:**
-
-```python
-import unreal
-
-# Draw debug text at actor location
-unreal.SystemLibrary.draw_debug_string(
-    world,
-    actor.get_actor_location(),
-    f"Pos: {actor.get_actor_location()}",
-    text_color=unreal.LinearColor(1, 1, 0, 1),  # Yellow
-    duration=0.0  # Persistent
-)
-
-# Draw debug box showing mesh bounds
-bounds_origin, bounds_extent = mesh_component.get_local_bounds()
-unreal.SystemLibrary.draw_debug_box(
-    world,
-    bounds_origin,
-    bounds_extent,
-    unreal.LinearColor(0, 1, 0, 1),  # Green
-    duration=0.0
-)
-
-# Draw debug line showing distance between objects
-unreal.SystemLibrary.draw_debug_line(
-    world,
-    actor_a.get_actor_location(),
-    actor_b.get_actor_location(),
-    unreal.LinearColor(1, 0, 0, 1),  # Red
-    duration=0.0
-)
-```
-
-**Why?** Screenshots with debug overlays make visual verification precise - you can confirm exact positions, sizes, and relationships rather than eyeballing.
-
----
-
-[Critical] List files in folder [Common Pitfalls](./references/common-pitfalls/) and check if any document is related to your current task. If yes, please read it carefully before coding.
-
-Refert to exammple scripts for similar tasks in ue5-dev-tools repository.
-
-- [Add gameplay tag to assets](./examples/add_gameplaytag_to_asset.py)
-- [Create blendspace](./examples/create_footwork_blendspace.py)
-- [Create level](./examples/create_sky_level.py)
-- [Customize sky atmosphere, fog, lighting and creating meshes](./examples/create_dark_pyramid_level.py)
-- [Create blueprints, adding physical constraints](./examples/create_punching_bag_blueprint.py)
-- [PIE screenshot capturer with multi-angle support (front, side, top, perspective)](./examples/pie_screenshot_capturer.py)
-
-#### Use **ue5-python-executor** to run and test scripts in UE5 Editor context.
-
-#### Use **ue5-api-expert** skill to verify API usage when necessary
-
-If you are unsure about what UE5 Python API to use or encounter issues, use **ue5-api-expert** skill to investigate API usage.
-
-### Visual Verification
-
-After running your scripts, capture screenshots using the CLI wrapper scripts:
-
-| Script | Use Case | Key Parameters |
-|--------|----------|----------------|
-| orbital-capture.py | Multi-angle level/scene screenshots | target_location, preset, distance, resolution |
-| window-capture.py | Editor window/Blueprint screenshots | command, asset_path, output_file, tab |
-| pie-capture.py | PIE runtime verification | command, output_dir, interval, multi_angle |
-
-**All scripts are located in**: `ue5-dev-tools/skills/ue5-python/scripts/`
-
-#### Mandatory Visual Analysis Workflow
-
-After capturing screenshots, you **MUST** use the **ue5-visual** subagent to analyze them for issues.
-
-#### 1. Static Scene Verification (Levels, Environments)
-
-**Capture orbital screenshots**:
-```bash
-python scripts/remote-execute.py --file scripts/orbital-capture.py \
-    --args "target_x=0,target_y=0,target_z=100,preset=orthographic,distance=500"
-```
-
-**Common presets**:
-- `orthographic` - 6 technical views (front, back, left, right, top, bottom)
-- `perspective` - 4 horizontal views at eye level
-- `birdseye` - 4 elevated 45-degree views
-- `all` - All available views
-
-**Then analyze with ue5-visual** to detect visual issues.
-
-#### 2. Blueprint/Asset Configuration Verification
-
-**Capture editor window**:
-```bash
-# Capture current window
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=window,output_file=C:/Screenshots/editor.png"
-
-# Open specific asset and capture
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=asset,asset_path=/Game/BP_Test,output_file=C:/Screenshots/bp.png,tab=1"
-
-# Batch capture multiple assets
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=batch,asset_list=/Game/BP1,/Game/BP2,output_dir=C:/Screenshots"
-```
-
-**Tab numbers** (for Blueprint editor):
-- 1 = Viewport
-- 2 = Construction Script
-- 3 = Event Graph
-
-**Platform requirement**: Windows only (uses Windows API)
-
-**Then analyze with ue5-visual** to verify configuration.
-
-#### 3. Runtime/Gameplay Verification (PIE Mode)
-
-**Start PIE capture**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=start,output_dir=C:/Captures,interval=1.0,multi_angle=true,auto_start_pie=true"
-```
-
-**Multi-angle capture** provides 4 views: Front, Side, Top, 45° Perspective
-
-**Stop capture when done**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=stop"
-```
-
-**Check capture status**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=status"
-```
-
-**Then analyze with ue5-visual** to verify runtime behavior.
-
-#### Script Help
-
-For detailed parameter documentation:
-```bash
-python scripts/orbital-capture.py --help
-python scripts/pie-capture.py --help
-python scripts/window-capture.py --help
-```
-
-Or see [Capture Scripts Reference](./references/capture-scripts.md) for comprehensive CLI documentation.
-
-[Critical] Do NOT skip visual analysis. Screenshots alone do not verify correctness - the ue5-visual agent identifies problems humans might miss.
-
-### Asset Diagnostic
-
-Before visual verification, use `asset-diagnostic.py` to detect and fix issues programmatically.
-
-#### Basic Usage
+Run before visual verification:
 
 ```bash
-# Diagnose current level (default)
 python scripts/remote-execute.py --file scripts/asset-diagnostic.py
-
-# Diagnose specific asset
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "asset_path=/Game/Maps/TestLevel"
-
-# Verbose mode for detailed analysis
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "asset_path=/Game/Maps/TestLevel,verbose=true"
+python scripts/remote-execute.py --file scripts/asset-diagnostic.py --args "asset_path=/Game/YourAsset,verbose=true"
 ```
 
-#### Available Parameters
-
-- **asset_path** - Path to asset (default: current level in editor)
-- **asset_type** - Override asset type detection (auto-detected if omitted)
-- **verbose** - Enable detailed diagnostic output (true/false)
-
-#### Supported Asset Types
-
-- **Level** - Map/World assets
-- **Blueprint** - Blueprint classes
-- **SkeletalMesh** - Skeletal mesh assets
-- **StaticMesh** - Static mesh assets
-
-#### Interpreting Results
-
-The script outputs diagnostic results with error and warning counts:
-
-```
-Asset Diagnostic Results for /Game/Maps/TestLevel
-==================================================
-Status: PASS (no issues found)
-
-Or:
-
-Status: ISSUES FOUND
-Errors: 2
-Warnings: 3
-
-[Detailed issue list...]
-```
-
-Fix all errors before proceeding to visual verification.
-
-#### Fix-and-Recheck Loop
-
-1. Run diagnostic and note all issues
-2. Fix reported issues in your script
-3. Re-run diagnostic
-4. Repeat until status is PASS
-
-#### Example Workflow
-
-```bash
-# Initial diagnostic
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "asset_path=/Game/Maps/TestLevel,verbose=true"
-
-# [Fix issues in your script...]
-
-# Verify fixes
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "asset_path=/Game/Maps/TestLevel"
-```
-
-[Critical] Always fix all errors and warnings before proceeding to visual capture and verification.
-
-For detailed API documentation, see [Asset Diagnostic Reference](./references/asset-diagnostic.md).
-
-## Best Practices
-
-### Core Interaction Patterns
-
-#### 1. Use Subsystems Instead of Static Libraries
-
-In UE4, we frequently used static function libraries such as `EditorAssetLibrary`. In UE5, Epic recommends using **Subsystems** - their lifecycle management is clearer and more aligned with object-oriented design.
-
-- **Recommended:** `unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)`
-- **Example:** Use `EditorActorSubsystem` instead of legacy LevelLibrary
-
-```python
-import unreal
-
-# Recommended: Get subsystem instance
-actor_subsystem = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
-selected_actors = actor_subsystem.get_selected_level_actors()
-```
-
-#### 2. Must Handle Undo/Redo (Transaction Management)
-
-If your script modifies the scene or assets without creating a Transaction, the user's `Ctrl+Z` will be ineffective. Always use `unreal.ScopedEditorTransaction`:
-
-```python
-# Wrap all modification operations in a with statement
-with unreal.ScopedEditorTransaction("My Python Batch Rename"):
-    for actor in selected_actors:
-        actor.set_actor_label(f"Prefix_{actor.get_actor_label()}")
-    # Users can now undo the entire loop's modifications with Ctrl+Z
-```
-
-#### 3. Use Asset Registry for Efficient Queries
-
-Do not iterate through the Content directory and `load_asset` to find files - this is extremely slow. The **Asset Registry** is an in-memory database that stores metadata without loading files.
-
-```python
-asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
-
-# Set up filter to find specific assets
-filter = unreal.ARFilter(
-    class_names=["MaterialInstanceConstant"],
-    recursive_paths=True,
-    package_paths=["/Game/Characters"]
-)
-
-# Get only metadata (AssetData) without loading actual assets
-asset_data_list = asset_registry.get_assets(filter)
-
-for data in asset_data_list:
-    print(data.package_name)  # Extremely fast
-    # Only load the asset when modification is necessary
-    # asset = data.get_asset()
-```
-
-#### 4. Asset Loading vs Finding
-
-Choose the right method for your use case:
-
-- **`load_asset(path)`** - Load asset into memory for processing (slow)
-- **`find_asset(path)`** - Quick check if asset exists (fast)
-- **`list_assets(directory)`** - List asset paths without loading (fast)
-
-Recommended workflow:
-
-1. Use `list_assets()` to get paths
-2. Use `find_asset()` to verify existence if needed
-3. Only `load_asset()` when you need to modify the asset
-
-### Additional Best Practices
-
-4. **Don't over-handle errors** - Let exceptions propagate; fail loudly not silently
-5. **Report results clearly** - Track success/failure counts; log meaningful progress
-6. **Verify visual results** - Use screenshot verification for visual/gameplay changes
-7. **Use ASCII-only output** - For cross-platform compatibility, use `[OK]`, `[ERROR]` instead of emojis
-
-## ExtraPythonAPIs Plugin
-
-A bundled UE5 plugin that exposes C++ functionality not available in the Python API. Install this plugin when you need to:
-
-- **Set socket/bone attachment for Blueprint components** - The Python API cannot set `SCS_Node.AttachToName`
-- **Attach collision components to skeletal mesh bones** in Blueprints
-
-### Installation
-
-```bash
-# Install plugin to project (auto-detects from CLAUDE_PROJECT_DIR)
-python scripts/install_extra_python_apis_plugin.py --project /path/to/project --enable
-
-# Or specify project path explicitly
-python scripts/install_extra_python_apis_plugin.py -p /path/to/MyProject.uproject -e
-```
-
-### Usage in Python Scripts
-
-After installing and rebuilding the project:
-
-```python
-import unreal
-
-# Get subsystem and handles
-subsystem = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
-handles = subsystem.k2_gather_subobject_data_for_blueprint(blueprint)
-
-# Attach a component to a bone/socket
-unreal.ExBlueprintComponentLibrary.setup_component_attachment(
-    child_handle,      # Component to attach
-    parent_handle,     # Parent component (e.g., SkeletalMeshComponent)
-    "bone_name"        # Socket/bone name
-)
-
-# Or just set the socket name directly
-unreal.ExBlueprintComponentLibrary.set_component_socket_attachment(
-    handle,
-    "bone_name"
-)
-```
-
-## Capture Scripts
-
-The `scripts/` directory provides CLI wrappers for screenshot capture and diagnostics. These scripts wrap the underlying `editor_capture` and `asset_diagnostic` Python modules for easy command-line usage.
-
-### Available Scripts
-
-#### orbital-capture.py
-Multi-angle SceneCapture2D screenshots with configurable presets.
-
-**Quick Example**:
-```bash
-python scripts/remote-execute.py --file scripts/orbital-capture.py \
-    --args "target_x=0,target_y=0,target_z=100,preset=orthographic"
-```
-
-#### pie-capture.py
-PIE runtime screenshot capture with multi-angle support and auto-capture.
-
-**Quick Example**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=start,output_dir=C:/Captures,auto_start_pie=true"
-```
-
-#### window-capture.py
-Editor window capture via Windows API (Windows only).
-
-**Quick Example**:
-```bash
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=window,output_file=C:/Screenshots/editor.png"
-```
-
-#### asset-diagnostic.py
-Asset and level issue detection with verbose diagnostics.
-
-**Quick Example**:
-```bash
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "verbose=true"
-```
-
-### Detailed Documentation
-
-- **[Capture Scripts Reference](./references/capture-scripts.md)** - Complete CLI parameter guide with examples
-- **[Editor Capture API](./references/editor-capture.md)** - Python module API for advanced usage
-- **[Asset Diagnostic API](./references/asset-diagnostic.md)** - Python module API for diagnostics
-
-### Advanced: Module Usage
-
-For custom integration in your own scripts, the underlying Python modules are available:
-- `editor_capture.orbital`
-- `editor_capture.pie_capture`
-- `editor_capture.window_capture`
-- `editor_capture.asset_editor`
-- `asset_diagnostic`
-
-See `examples/pie_screenshot_capturer.py` for a module usage example.
+Fix all errors and warnings before proceeding. See [Asset Diagnostic Reference](./references/asset-diagnostic.md).
 
 ## Additional Resources
 
-For comprehensive guidance on specific aspects of UE5 Python development:
-
-- **cpp-source-investigation.md** - Guide for investigating C++ source code when Python API is insufficient
+- [Best Practices](./references/best-practices.md) - Debug visualization, subsystems, transactions, asset registry
+- [ExtraPythonAPIs Plugin](./references/extra-python-apis.md) - For socket/bone attachment in Blueprints
+- [Capture Scripts Reference](./references/capture-scripts.md) - CLI parameter documentation
+- [Editor Capture API](./references/editor-capture.md) - Python module API
+- [Asset Diagnostic API](./references/asset-diagnostic.md) - Diagnostic module API
+- [C++ Source Investigation](./references/cpp-source-investigation.md) - When Python API is insufficient

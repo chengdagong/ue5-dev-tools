@@ -76,7 +76,7 @@ A workflow-oriented guide for developing reliable UE5 Editor Python scripts.
 
 ## Prerequisites
 
-[Critical] **ue5-visual** subagent and **ue5-python-executor** skill must be available. If not present, refuse to use this skill.
+[Critical] **ue5-visual** subagent and **ue-mcp** server must be available. If not present, refuse to use this skill.
 
 CLI scripts for capture and diagnostics are in `scripts/`. See [Capture Scripts Reference](./references/capture-scripts.md) for details.
 
@@ -159,7 +159,7 @@ ${CLAUDE_PROJECT_DIR}/Scripts/<task_name>/
    - [Create blueprint with physics](./examples/create_punching_bag_blueprint.py)
    - [PIE screenshot capturer](./examples/pie_screenshot_capturer.py)
 
-4. Use **ue5-python-executor** to run scripts
+4. Use **ue-mcp** tool `editor.execute` to run scripts
 5. Use **ue5-api-expert** to verify API usage when unsure
 
 ## Visual Verification

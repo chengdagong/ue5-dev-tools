@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 """
-Orbital Capture Wrapper for remote-execute.py
-
-A CLI wrapper for multi-angle SceneCapture2D screenshots using the editor_capture
-orbital module. Captures screenshots from multiple angles around a target location.
-
 Usage:
     orbital-capture.py --target-location X,Y,Z [OPTIONS]
 
@@ -17,13 +12,6 @@ Examples:
 
     # Custom output directory and distance
     orbital-capture.py --target-location 0,0,100 --distance 800 --output-dir C:/Captures
-
-Via remote-execute.py:
-    remote-execute.py --file orbital-capture.py \\
-        --args "target_location=0,0,100,preset=perspective"
-
-    remote-execute.py --file orbital-capture.py \\
-        --args "target_location=0,0,100,distance=800,output_dir=C:/Captures"
 """
 
 import sys
@@ -95,10 +83,6 @@ Examples:
   %(prog)s --target-location 0,0,100 --preset perspective
   %(prog)s --target-location 100,200,150 --distance 800 --output-dir C:/Captures
   %(prog)s --target-location 0,0,100 --resolution 1920x1080
-
-Via remote-execute.py:
-  remote-execute.py --file %(prog)s --args "target_location=0,0,100"
-  remote-execute.py --file %(prog)s --args "target_location=0,0,100,preset=all"
         """
     )
 
@@ -179,7 +163,7 @@ Via remote-execute.py:
         print("This script must run in a UE5 Python environment with editor_capture installed.", file=sys.stderr)
         print("", file=sys.stderr)
         print("Troubleshooting:", file=sys.stderr)
-        print("1. Ensure the script is executed via remote-execute.py", file=sys.stderr)
+        print("1. Ensure the script is executed in a UE5 environment", file=sys.stderr)
         print("2. Check that editor_capture is in site-packages:", file=sys.stderr)
         print(f"   {site_packages}/editor_capture", file=sys.stderr)
         print("3. Verify Python path includes:", file=sys.stderr)

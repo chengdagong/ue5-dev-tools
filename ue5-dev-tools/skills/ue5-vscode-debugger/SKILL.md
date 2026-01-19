@@ -9,14 +9,14 @@ Configure VSCode for F5 debugging of Python scripts running in Unreal Engine 5 e
 
 ## Dependencies
 
-**Required Skill**: [ue5-python-executor](../ue5-python-executor/SKILL.md)
+## Dependencies
 
-This skill depends on ue5-python-executor for:
-- UE5 Python plugin configuration verification
-- Remote script execution to start debugpy server
-- Shared library for path resolution utilities
+**Required Skill**: [ue-mcp](https://github.com/jlowin/fastmcp) (for general remote execution)
 
-Ensure ue5-python-executor skill is installed before using this skill.
+This skill includes its own `remote-execute.py` for specialized debugging tasks, but relies on `ue-mcp` for:
+- Initial UE5 Python plugin configuration verification
+- General remote execution needs outside of debugging
+
 
 ## Quick Start
 
@@ -57,10 +57,10 @@ This automatically creates:
 
 For new UE5 projects that need VSCode debugging:
 
-1. **Ensure ue5-python-executor is configured:**
+1. **Ensure UE5 project is configured:**
    ```bash
-   # From ue5-python-executor skill
-   python ../ue5-python-executor/scripts/check-config.py --auto-fix
+   # Use ue-mcp or direct python command
+   ue-mcp configure
    ```
 
 2. **Setup VSCode configurations:**
@@ -70,9 +70,9 @@ For new UE5 projects that need VSCode debugging:
 
 3. **Install debugpy in UE5's Python:**
    - Open UE5 Editor
-   - Execute via ue5-python-executor:
+   - Execute via ue-mcp or scripts/remote-execute.py:
      ```bash
-     python ../ue5-python-executor/scripts/remote-execute.py \
+     python scripts/remote-execute.py \
        --code "import subprocess; subprocess.run(['pip', 'install', 'debugpy'])"
      ```
 
@@ -99,7 +99,7 @@ For debugging already-running debugpy servers:
 
 1. **Manually start debugpy server** in UE5:
    ```bash
-   python ../ue5-python-executor/scripts/remote-execute.py \
+   python scripts/remote-execute.py \
      --file scripts/start_debug_server.py
    ```
 
@@ -118,7 +118,7 @@ Generates VSCode debugging configurations for UE5 Python.
 - Creates launch.json with debugpy attach configurations
 - Creates tasks.json with debugpy server startup and script execution
 - Merges with existing configurations to preserve user customizations
-- References ue5-python-executor's remote-execute.py for execution
+- References its own scripts/remote-execute.py for execution
 
 **Usage examples:**
 
@@ -144,7 +144,7 @@ python scripts/setup-vscode.py --force
 - **"UE5 Python: Attach Only"** - Attaches to existing debugpy server
 
 **tasks.json:**
-- **"ue5-start-debug-server"** - Starts debugpy server in UE5 (via remote-execute.py)
+- **"ue5-start-debug-server"** - Starts debugpy server in UE5 (via scripts/remote-execute.py)
 - **"ue5-execute-python"** - Executes current file in UE5 (detached mode)
 - **"ue5-start-debug-and-execute"** - Sequential combination of above tasks
 
@@ -159,8 +159,8 @@ Python script executed in UE5 editor to start debugpy remote debugging server.
 
 **Execution:**
 ```bash
-# Via ue5-python-executor
-python ../ue5-python-executor/scripts/remote-execute.py \
+# Via scripts/remote-execute.py
+python scripts/remote-execute.py \
   --file scripts/start_debug_server.py
 ```
 
@@ -251,8 +251,8 @@ Uses debugpy (Python's Debug Adapter Protocol implementation):
 - `debugpy` - Install via pip in UE5's Python environment
 
 **UE5 Configuration:**
-- Python plugin enabled (handled by ue5-python-executor)
-- Remote execution enabled (handled by ue5-python-executor)
+- Python plugin enabled (handled by ue-mcp or scripts/remote-execute.py)
+- Remote execution enabled (handled by ue-mcp or scripts/remote-execute.py)
 
 ## Troubleshooting
 
@@ -267,11 +267,11 @@ Uses debugpy (Python's Debug Adapter Protocol implementation):
 **Solutions:**
 ```bash
 # Install debugpy in UE5
-python ../ue5-python-executor/scripts/remote-execute.py \
+python scripts/remote-execute.py \
   --code "import subprocess; subprocess.run(['pip', 'install', 'debugpy'])"
 
 # Verify debugpy server starts
-python ../ue5-python-executor/scripts/remote-execute.py \
+python scripts/remote-execute.py \
   --file scripts/start_debug_server.py
 
 # Check port availability
@@ -293,20 +293,21 @@ lsof -i :19678
 ### "Task ue5-start-debug-server failed"
 
 **Causes:**
-- ue5-python-executor skill not found
+- remote-execute.py not found
 - UE5 editor not running
 - Remote execution not configured
 
 **Solutions:**
 ```bash
-# Verify ue5-python-executor installed
-ls ../ue5-python-executor/scripts/remote-execute.py
+# Verify remote-execute.py installed
+ls scripts/remote-execute.py
 
 # Check UE5 configuration
-python ../ue5-python-executor/scripts/check-config.py --check-only
+# Use ue-mcp to check configuration
+ue-mcp configure --check-only
 
 # Test remote execution
-python ../ue5-python-executor/scripts/remote-execute.py \
+python scripts/remote-execute.py \
   --code "print('test')"
 ```
 
@@ -379,7 +380,7 @@ Extend tasks.json for project-specific workflows:
   "type": "shell",
   "command": "python",
   "args": [
-    "${env:CLAUDE_PLUGIN_ROOT}/skills/ue5-python-executor/scripts/remote-execute.py",
+    "${env:CLAUDE_PLUGIN_ROOT}/skills/ue5-vscode-debugger/scripts/remote-execute.py",
     "--file",
     "${workspaceFolder}/tests/run_all.py"
   ]
@@ -417,4 +418,4 @@ Add custom debug configurations to launch.json:
 
 ## Related Skills
 
-- **ue5-python-executor**: Remote Python script execution (required dependency)
+- **ue-mcp**: For general UE5 remote execution and project configuration.

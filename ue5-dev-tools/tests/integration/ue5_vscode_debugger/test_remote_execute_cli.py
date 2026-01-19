@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 # Path to the remote-execute.py script
-SCRIPT_PATH = Path(__file__).parent.parent.parent.parent / "skills" / "ue5-python-executor" / "scripts" / "remote-execute.py"
+SCRIPT_PATH = Path(__file__).parent.parent.parent.parent / "skills" / "ue5-vscode-debugger" / "scripts" / "remote-execute.py"
 
 
 class TestCLIHelp:

@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 # Add lib to path for imports
-LIB_PATH = Path(__file__).parent.parent.parent / "skills" / "ue5-python-executor" / "lib"
+LIB_PATH = Path(__file__).parent.parent.parent / "skills" / "ue5-vscode-debugger" / "lib"
 if str(LIB_PATH) not in sys.path:
     sys.path.insert(0, str(LIB_PATH))
 

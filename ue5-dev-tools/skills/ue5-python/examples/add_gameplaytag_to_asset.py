@@ -7,7 +7,7 @@ because gameplay_tags property is read-only.
 
 Usage:
     Run via UE5 Python Remote Execution:
-    python3 remote-execute.py --file set_movement_ability_tags_final.py --project-name URF
+    unreal.execute_python_script("set_movement_ability_tags_final.py")
 """
 
 import unreal

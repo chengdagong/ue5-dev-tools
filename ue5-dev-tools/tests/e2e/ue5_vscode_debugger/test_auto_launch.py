@@ -26,7 +26,7 @@ from conftest import (
     detect_ue5_version,
 )
 
-REMOTE_EXECUTE_SCRIPT = Path(__file__).parent.parent.parent.parent / "skills" / "ue5-python-executor" / "scripts" / "remote-execute.py"
+REMOTE_EXECUTE_SCRIPT = Path(__file__).parent.parent.parent.parent / "skills" / "ue5-vscode-debugger" / "scripts" / "remote-execute.py"
 TESTS_DIR = Path(__file__).parent.parent.parent
 AUTO_LAUNCH_TEST_PROJECT_DIR = TESTS_DIR / "fixtures" / "AutoLaunchTestProject"
 CONFIG_FIX_TEST_PROJECT_DIR = TESTS_DIR / "fixtures" / "ConfigFixTestProject"

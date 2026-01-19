@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 """
-Window Capture Wrapper for remote-execute.py
-
-A CLI wrapper for Windows API window capturing using the editor_capture
-window_capture module. Captures screenshots of UE5 editor windows and asset editors.
-
-Note: This script is Windows-only and uses Windows API for window manipulation.
-
 Usage:
     window-capture.py window --output-file PATH [--tab NUM]
     window-capture.py asset --asset-path PATH --output-file PATH [--tab NUM]
@@ -24,16 +17,6 @@ Examples:
 
     # Batch capture multiple assets
     window-capture.py batch --asset-list /Game/BP1,/Game/BP2 --output-dir C:/Screenshots
-
-Via remote-execute.py:
-    remote-execute.py --file window-capture.py \\
-        --args "command=window,output_file=C:/Screenshots/editor.png"
-
-    remote-execute.py --file window-capture.py \\
-        --args "command=window,output_file=C:/Screenshots/tab1.png,tab=1"
-
-    remote-execute.py --file window-capture.py \\
-        --args "command=asset,asset_path=/Game/BP_Test,output_file=C:/Screenshots/bp.png"
 """
 
 import sys
@@ -204,11 +187,6 @@ Commands:
   window    Capture the UE5 editor window
   asset     Open asset editor and capture screenshot
   batch     Batch capture multiple assets
-
-Examples via remote-execute.py:
-  remote-execute.py --file %(prog)s --args "command=window,output_file=C:/Screenshots/editor.png"
-  remote-execute.py --file %(prog)s --args "command=window,output_file=C:/Screenshots/tab1.png,tab=1"
-  remote-execute.py --file %(prog)s --args "command=asset,asset_path=//Game/BP_Test,output_file=C:/Screenshots/bp.png"
         """
     )
 
@@ -274,7 +252,7 @@ Examples via remote-execute.py:
         print("This script must run in a UE5 Python environment with editor_capture installed.", file=sys.stderr)
         print("", file=sys.stderr)
         print("Troubleshooting:", file=sys.stderr)
-        print("1. Ensure the script is executed via remote-execute.py", file=sys.stderr)
+        print("1. Ensure the script is executed in a UE5 environment", file=sys.stderr)
         print("2. Check that editor_capture is in site-packages:", file=sys.stderr)
         print(f"   {site_packages}/editor_capture", file=sys.stderr)
         print("3. Verify Python path includes:", file=sys.stderr)

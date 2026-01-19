@@ -381,11 +381,11 @@ def find_skills_root(start_path: Optional[Path] = None) -> Optional[Path]:
     current = Path(start_path).resolve()
 
     for _ in range(10):
-        executor_path = current / "ue5-python-executor"
+        debugger_path = current / "ue5-vscode-debugger"
         lib_path = current / "lib"
 
-        if executor_path.exists() and executor_path.is_dir():
-            if (executor_path / "scripts" / "remote-execute.py").exists():
+        if debugger_path.exists() and debugger_path.is_dir():
+            if (debugger_path / "scripts" / "remote-execute.py").exists():
                 return current
 
         if lib_path.exists() and lib_path.is_dir():
@@ -407,7 +407,7 @@ def find_skill_path(
     Find the path to a specific skill directory.
 
     Args:
-        skill_name: Name of the skill (e.g., 'ue5-python-executor')
+        skill_name: Name of the skill (e.g., 'ue5-python')
         start_path: Starting path for search
 
     Returns:

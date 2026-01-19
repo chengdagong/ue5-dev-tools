@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 """
-PIE Capture Wrapper for remote-execute.py
-
-A CLI wrapper for Play-In-Editor (PIE) screenshot capture using the editor_capture
-pie_capture module. Automatically captures screenshots during PIE at regular intervals.
-
 Usage:
     pie-capture.py start --output-dir PATH [OPTIONS]
     pie-capture.py stop
@@ -22,12 +17,6 @@ Examples:
 
     # Check capture status
     pie-capture.py status
-
-Via remote-execute.py:
-    remote-execute.py --file pie-capture.py \\
-        --args "command=start,output_dir=C:/Captures,auto_start_pie=true"
-
-    remote-execute.py --file pie-capture.py --args "command=stop"
 """
 
 import sys
@@ -175,12 +164,6 @@ Commands:
   start     Start PIE capture with specified settings
   stop      Stop active PIE capture
   status    Check PIE capture and session status
-
-Examples via remote-execute.py:
-  remote-execute.py --file %(prog)s --args "command=start,output_dir=C:/Captures"
-  remote-execute.py --file %(prog)s --args "command=start,output_dir=C:/Captures,auto_start_pie=true"
-  remote-execute.py --file %(prog)s --args "command=stop"
-  remote-execute.py --file %(prog)s --args "command=status"
         """
     )
 
@@ -264,7 +247,7 @@ Examples via remote-execute.py:
         print("This script must run in a UE5 Python environment with editor_capture installed.", file=sys.stderr)
         print("", file=sys.stderr)
         print("Troubleshooting:", file=sys.stderr)
-        print("1. Ensure the script is executed via remote-execute.py", file=sys.stderr)
+        print("1. Ensure the script is executed in a UE5 environment", file=sys.stderr)
         print("2. Check that editor_capture is in site-packages:", file=sys.stderr)
         print(f"   {site_packages}/editor_capture", file=sys.stderr)
         print("3. Verify Python path includes:", file=sys.stderr)

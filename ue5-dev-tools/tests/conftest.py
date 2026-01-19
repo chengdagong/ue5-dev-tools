@@ -11,8 +11,8 @@ from pathlib import Path
 PLUGIN_ROOT = Path(__file__).parent.parent
 SKILLS_ROOT = PLUGIN_ROOT / "skills"
 
-# ue5-python-executor library
-UE5_EXECUTOR_LIB = SKILLS_ROOT / "ue5-python-executor" / "lib"
+# ue5-vscode-debugger library (contains remote execution lib)
+UE5_EXECUTOR_LIB = SKILLS_ROOT / "ue5-vscode-debugger" / "lib"
 if str(UE5_EXECUTOR_LIB) not in sys.path:
     sys.path.insert(0, str(UE5_EXECUTOR_LIB))
 

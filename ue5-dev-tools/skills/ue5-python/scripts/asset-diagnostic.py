@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 """
-Asset Diagnostic Wrapper for remote-execute.py
-
-A simple CLI wrapper for the asset_diagnostic module that makes it easy to
-diagnose UE5 assets through remote execution.
-
 Usage:
     asset-diagnostic.py ASSET_PATH [--verbose]
 
@@ -17,13 +12,6 @@ Examples:
 
     # Diagnose a blueprint
     asset-diagnostic.py /Game/Blueprints/BP_MyActor
-
-Via remote-execute.py:
-    remote-execute.py --file asset-diagnostic.py \\
-        --args "asset_path=/Game/Maps/TestLevel"
-
-    remote-execute.py --file asset-diagnostic.py \\
-        --args "asset_path=/Game/Blueprints/BP_Test,verbose=true"
 """
 
 import sys
@@ -65,10 +53,6 @@ Examples:
   %(prog)s /Game/Maps/TestLevel --verbose
   %(prog)s /Game/Blueprints/BP_MyActor
 
-Via remote-execute.py:
-  remote-execute.py --file %(prog)s --args "asset_path=/Game/Maps/TestLevel"
-  remote-execute.py --file %(prog)s --args "asset_path=/Game/Maps/TestLevel,verbose=true"
-
 For diagnosing current level or selected assets, use Python API directly:
   import asset_diagnostic
   asset_diagnostic.diagnose_current_level()
@@ -103,7 +87,7 @@ For diagnosing current level or selected assets, use Python API directly:
         print("This script must run in a UE5 Python environment with asset_diagnostic installed.", file=sys.stderr)
         print("", file=sys.stderr)
         print("Troubleshooting:", file=sys.stderr)
-        print("1. Ensure the script is executed via remote-execute.py", file=sys.stderr)
+        print("1. Ensure the script is executed in a UE5 environment", file=sys.stderr)
         print("2. Check that asset_diagnostic is in site-packages:", file=sys.stderr)
         print(f"   {site_packages}/asset_diagnostic", file=sys.stderr)
         print("3. Verify Python path includes:", file=sys.stderr)

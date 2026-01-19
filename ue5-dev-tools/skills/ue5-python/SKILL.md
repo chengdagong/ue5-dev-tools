@@ -178,12 +178,9 @@ See [Capture Scripts Reference](./references/capture-scripts.md) for full parame
 
 ## Asset Diagnostic
 
-Run before visual verification:
-
-```bash
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py --args "asset_path=/Game/YourAsset,verbose=true"
-```
+Run before visual verification to identify issues:
+- Use `asset_diagnostic` Python module via `editor.execute`
+- Check for common issues in levels, actors, and blueprints
 
 Fix all errors and warnings before proceeding. See [Asset Diagnostic Reference](./references/asset-diagnostic.md).
 

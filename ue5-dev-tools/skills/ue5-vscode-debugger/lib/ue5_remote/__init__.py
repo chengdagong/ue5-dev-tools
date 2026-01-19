@@ -2,7 +2,7 @@
 UE5 Remote Execution Library
 
 Shared library for UE5 Python remote execution protocol and utilities.
-Used by ue5-python-executor and ue5-vscode-debugger skills.
+Used by ue5-vscode-debugger skill.
 """
 
 from .executor import UE5RemoteExecution

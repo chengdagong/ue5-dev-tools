@@ -4,9 +4,11 @@ Command-line wrappers for the editor_capture and asset_diagnostic modules.
 
 **Location**: `ue5-dev-tools/skills/ue5-python/scripts/`
 
-**Execution**: All scripts are executed via remote-execute.py:
-```bash
-python scripts/remote-execute.py --file scripts/<script-name>.py --args "param1=value1,param2=value2"
+**Execution**: All scripts are executed via **ue-mcp** using the `editor.execute` tool:
+```python
+# General pattern
+import orbital_capture
+orbital_capture.take_orbital_screenshots_with_preset(...)
 ```
 
 ---
@@ -47,27 +49,50 @@ Multi-angle SceneCapture2D screenshots around a target location.
 ### Examples
 
 **Basic orthographic capture**:
-```bash
-python scripts/remote-execute.py --file scripts/orbital-capture.py \
-    --args "target_x=0,target_y=0,target_z=100"
+```python
+import unreal, editor_capture
+world = unreal.EditorLevelLibrary.get_editor_world()
+editor_capture.take_orbital_screenshots_with_preset(
+    loaded_world=world,
+    target_location=unreal.Vector(0,0,100)
+)
 ```
 
 **All views with custom resolution**:
-```bash
-python scripts/remote-execute.py --file scripts/orbital-capture.py \
-    --args "target_x=0,target_y=0,target_z=100,preset=all,resolution=1920x1080,distance=800"
+```python
+import unreal, editor_capture
+world = unreal.EditorLevelLibrary.get_editor_world()
+editor_capture.take_orbital_screenshots_with_preset(
+    loaded_world=world,
+    target_location=unreal.Vector(0,0,100),
+    preset='all',
+    resolution_width=1920,
+    resolution_height=1080,
+    distance=800
+)
 ```
 
 **Perspective views only**:
-```bash
-python scripts/remote-execute.py --file scripts/orbital-capture.py \
-    --args "target_x=500,target_y=500,target_z=200,preset=perspective,distance=1000"
+```python
+import unreal, editor_capture
+world = unreal.EditorLevelLibrary.get_editor_world()
+editor_capture.take_orbital_screenshots_with_preset(
+    loaded_world=world,
+    target_location=unreal.Vector(500,500,200),
+    preset='perspective',
+    distance=1000
+)
 ```
 
 **Using target_location format**:
-```bash
-python scripts/remote-execute.py --file scripts/orbital-capture.py \
-    --args "target_location=0,0,100,preset=orthographic"
+```python
+import unreal, editor_capture
+world = unreal.EditorLevelLibrary.get_editor_world()
+editor_capture.take_orbital_screenshots_with_preset(
+    loaded_world=world,
+    target_location=unreal.Vector(0,0,100),
+    preset='orthographic'
+)
 ```
 
 ### Output
@@ -122,27 +147,35 @@ When `multi_angle=true`, captures 4 views per interval:
 ### Examples
 
 **Start capture with auto-start PIE**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=start,output_dir=C:/Captures,auto_start_pie=true"
+```python
+import editor_capture
+editor_capture.start_pie_capture(
+    output_dir='C:/Captures',
+    auto_start_pie=True
+)
 ```
 
 **Start with custom interval and single angle**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=start,output_dir=C:/Captures,interval=2.0,multi_angle=false"
+```python
+import editor_capture
+editor_capture.start_pie_capture(
+    output_dir='C:/Captures',
+    interval_seconds=2.0,
+    multi_angle=False
+)
 ```
 
 **Stop active capture**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=stop"
+```python
+import editor_capture
+editor_capture.stop_pie_capture()
 ```
 
 **Check status**:
-```bash
-python scripts/remote-execute.py --file scripts/pie-capture.py \
-    --args "command=status"
+```python
+import editor_capture
+print(f"PIE Running: {editor_capture.is_pie_running()}")
+print(f"Capturer: {editor_capture.get_pie_capturer()}")
 ```
 
 ### Output
@@ -209,27 +242,35 @@ Windows API-based window capturing for UE5 editor windows.
 ### Examples
 
 **Capture current editor window**:
-```bash
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=window,output_file=C:/Screenshots/editor.png"
+```python
+import editor_capture
+editor_capture.capture_ue5_window('C:/Screenshots/editor.png')
 ```
 
 **Capture Blueprint viewport tab**:
-```bash
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=window,output_file=C:/Screenshots/viewport.png,tab=1"
+```python
+import editor_capture
+hwnd = editor_capture.find_ue5_window()
+editor_capture.switch_to_tab(1, hwnd)
+editor_capture.capture_ue5_window('C:/Screenshots/viewport.png')
 ```
 
 **Open asset and capture**:
-```bash
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=asset,asset_path=/Game/BP_Test,output_file=C:/Screenshots/bp.png"
+```python
+import editor_capture
+editor_capture.open_asset_and_screenshot(
+    asset_path='/Game/BP_Test',
+    output_path='C:/Screenshots/bp.png'
+)
 ```
 
 **Batch capture multiple assets**:
-```bash
-python scripts/remote-execute.py --file scripts/window-capture.py \
-    --args "command=batch,asset_list=/Game/BP1,/Game/BP2,output_dir=C:/Screenshots"
+```python
+import editor_capture
+editor_capture.batch_asset_screenshots(
+    asset_paths=['/Game/BP1', '/Game/BP2'],
+    output_dir='C:/Screenshots'
+)
 ```
 
 ### Output
@@ -266,26 +307,27 @@ Asset and level diagnostics to detect common issues.
 ### Examples
 
 **Diagnose current level**:
-```bash
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py
+```python
+import asset_diagnostic
+asset_diagnostic.diagnose_current_level()
 ```
 
 **Diagnose specific level with verbose output**:
-```bash
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "asset_path=/Game/Maps/TestLevel,verbose=true"
+```python
+import asset_diagnostic
+asset_diagnostic.diagnose('/Game/Maps/TestLevel', verbose=True)
 ```
 
 **Diagnose Blueprint**:
-```bash
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "asset_path=/Game/Blueprints/BP_MyActor,asset_type=Blueprint"
+```python
+import asset_diagnostic
+asset_diagnostic.diagnose('/Game/Blueprints/BP_MyActor')
 ```
 
 **Diagnose skeletal mesh**:
-```bash
-python scripts/remote-execute.py --file scripts/asset-diagnostic.py \
-    --args "asset_path=/Game/Characters/SK_Character,verbose=true"
+```python
+import asset_diagnostic
+asset_diagnostic.diagnose('/Game/Characters/SK_Character', verbose=True)
 ```
 
 ### Output
@@ -358,9 +400,11 @@ Use absolute paths with forward slashes:
 
 ### Script Not Found
 
-Ensure the script path is relative to the project root:
-```bash
-python scripts/remote-execute.py --file scripts/orbital-capture.py ...
+Ensure the script or module is available in your workspace.
+```python
+import editor_capture
+# or
+import asset_diagnostic
 ```
 
 ### Parameter Parsing Errors

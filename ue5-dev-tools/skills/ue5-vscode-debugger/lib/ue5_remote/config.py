@@ -233,7 +233,7 @@ def check_remote_execution(ini_path: Path, auto_fix: bool = False) -> Tuple[bool
 
 def get_site_packages_path() -> Path:
     """Get the absolute path to ue5-python/site-packages directory."""
-    # Path: ue5-python-executor/lib/ue5_remote/config.py -> skills/ue5-python/site-packages
+    # Path: ue5-vscode-debugger/lib/ue5_remote/config.py -> skills/ue5-python/site-packages
     skills_dir = Path(__file__).parent.parent.parent.parent
     return (skills_dir / "ue5-python" / "site-packages").resolve()
 

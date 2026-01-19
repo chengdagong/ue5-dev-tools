@@ -1,15 +1,13 @@
 # Editor Capture Module API Reference
 
-> **Note**: This document describes the Python module API for advanced users who need custom integration. For most use cases, we recommend using the CLI wrapper scripts instead. See [Capture Scripts Reference](./capture-scripts.md) for CLI documentation.
+## Usage via Python API
 
-## Recommended: Use CLI Scripts
+You can use the `editor_capture` submodules directly via **ue-mcp**'s `editor.execute()` tool:
 
-For common screenshot and capture tasks, use the standalone scripts:
-- **orbital-capture.py** - Multi-angle screenshots
-- **pie-capture.py** - PIE runtime capture
-- **window-capture.py** - Editor window capture
-
-See [Capture Scripts Reference](./capture-scripts.md) for detailed CLI usage.
+```python
+import editor_capture
+# Use submodules: editor_capture.orbital, editor_capture.asset_editor, etc.
+```
 
 ## Advanced: Module API
 
@@ -35,8 +33,7 @@ The `editor_capture` module provides three submodules for different capture and 
 
 Capture multi-angle screenshots around a target location using SceneCapture2D:
 
-```bash
-python remote-execute.py --code "
+```python
 import unreal
 from editor_capture import orbital
 
@@ -47,7 +44,6 @@ results = orbital.take_orbital_screenshots(
     distance=500.0
 )
 print(f'Captured {sum(len(v) for v in results.values())} screenshots')
-"
 ```
 
 Temporary actors (grid, gizmo, capture actors) are automatically cleaned up via transaction undo. Set `auto_cleanup=False` to keep them.
@@ -56,8 +52,7 @@ Temporary actors (grid, gizmo, capture actors) are automatically cleaned up via 
 
 Open/close asset editors programmatically:
 
-```bash
-python remote-execute.py --code "
+```python
 from editor_capture import asset_editor
 
 # Open a Blueprint editor
@@ -68,20 +63,17 @@ asset_editor.close_asset_editor('/Game/Blueprints/BP_MyActor')
 
 # Close all open editors
 asset_editor.close_all_asset_editors()
-"
 ```
 
 ### Window Capture (Windows only)
 
 Capture UE5 editor window screenshots:
 
-```bash
-python remote-execute.py --code "
+```python
 from editor_capture import window_capture
 
 # Capture the UE5 editor window
 window_capture.capture_ue5_window('C:/Screenshots/editor.png')
-"
 ```
 
 ## API Reference
@@ -246,8 +238,7 @@ batch_asset_screenshots(asset_paths, output_dir, delay=3.0, tab_number=None, clo
 
 ### Capture orthographic views for model QA
 
-```bash
-python remote-execute.py --code "
+```python
 import unreal
 from editor_capture import orbital
 
@@ -267,13 +258,11 @@ if target_actor:
         enable_gizmo=True
     )
     print(f'Saved to: {results}')
-"
 ```
 
 ### Screenshot multiple Blueprint viewports
 
-```bash
-python remote-execute.py --code "
+```python
 from editor_capture import window_capture
 import os
 
@@ -292,14 +281,12 @@ results = window_capture.batch_asset_screenshots(
     close_after=True
 )
 
-print(f'Success: {len(results[\"success\"])}, Failed: {len(results[\"failed\"])}')
-"
+print(f'Success: {len(results["success"])}, Failed: {len(results["failed"])}')
 ```
 
 ### Capture Event Graph of a Blueprint
 
-```bash
-python remote-execute.py --code "
+```python
 from editor_capture import window_capture, asset_editor
 import time
 
@@ -319,7 +306,6 @@ window_capture.capture_ue5_window(output_path)
 
 # Close editor
 asset_editor.close_asset_editor(blueprint_path)
-"
 ```
 
 ## Output Structure

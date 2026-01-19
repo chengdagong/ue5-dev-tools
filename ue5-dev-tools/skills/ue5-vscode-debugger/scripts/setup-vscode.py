@@ -2,8 +2,7 @@
 """
 VSCode Configuration Setup Tool
 
-Automatically generates .vscode/launch.json and .vscode/tasks.json,
-Using correct plugin paths by searching upward for ue5-python-executor.
+Using correct plugin paths.
 """
 
 import sys
@@ -62,9 +61,9 @@ def create_launch_config() -> Dict[str, Any]:
     }
 
 
-def create_tasks_config(executor_skill: Path, debugger_skill: Path) -> Dict[str, Any]:
+def create_tasks_config(debugger_skill: Path) -> Dict[str, Any]:
     """Create tasks.json configuration"""
-    remote_execute_script = executor_skill / "scripts" / "remote-execute.py"
+    remote_execute_script = debugger_skill / "scripts" / "remote-execute.py"
     start_debug_script = debugger_skill / "scripts" / "start_debug_server.py"
 
     return {
@@ -206,7 +205,7 @@ def setup_vscode_config(project_root: Path, executor_skill: Path, debugger_skill
 
     Args:
         project_root: Project Root
-        executor_skill: Path to ue5-python-executor skill
+        debugger_skill: Path to ue5-vscode-debugger skill
         debugger_skill: Path to ue5-vscode-debugger skill
         force: Whether to force overwrite existing configuration
 
@@ -218,13 +217,12 @@ def setup_vscode_config(project_root: Path, executor_skill: Path, debugger_skill
     tasks_json = vscode_dir / "tasks.json"
 
     print(f"Project Root: {project_root}")
-    print(f"Executor Skill: {executor_skill}")
     print(f"Debugger Skill: {debugger_skill}")
     print()
 
     # Create configurations
     launch_config = create_launch_config()
-    tasks_config = create_tasks_config(executor_skill, debugger_skill)
+    tasks_config = create_tasks_config(debugger_skill)
 
     # Process launch.json
     print("Processing launch.json...")
@@ -301,24 +299,19 @@ Environment Variables:
         project_root = Path.cwd()
 
     # Find skill paths using ue5_utils
-    executor_skill = find_skill_path("ue5-python-executor")
     debugger_skill = find_skill_path("ue5-vscode-debugger")
-
-    if executor_skill is None:
-        print("Error: Cannot find ue5-python-executor skill.", file=sys.stderr)
-        sys.exit(1)
 
     if debugger_skill is None:
         print("Error: Cannot find ue5-vscode-debugger skill.", file=sys.stderr)
         sys.exit(1)
 
     # Verify remote-execute.py exists
-    remote_exec = executor_skill / "scripts" / "remote-execute.py"
+    remote_exec = debugger_skill / "scripts" / "remote-execute.py"
     if not remote_exec.exists():
         print(f"Error: Cannot find remote-execute.py at: {remote_exec}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Found skills root: {executor_skill.parent}")
+    print(f"Found debugger skill: {debugger_skill}")
 
     # Setup configuration
     try:
